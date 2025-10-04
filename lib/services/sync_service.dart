@@ -1,6 +1,9 @@
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
+import 'package:contacts_service/contacts_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 // Background task identifier
 const String syncTaskName = "epansa-background-sync";
@@ -42,7 +45,7 @@ Future<void> _performBackgroundSyncTask() async {
   // Perform mock sync operations
   await _backgroundSyncNotes();
   await _backgroundSyncContacts();
-  await _backgroundSyncCalendar();
+  // Calendar reading removed - handled by server reading Google Calendar
   await _backgroundSyncAlarms();
   await _backgroundSyncCallRegistry();
   
@@ -63,11 +66,8 @@ Future<void> _backgroundSyncContacts() async {
   debugPrint('✅ [Background] Contacts synced');
 }
 
-Future<void> _backgroundSyncCalendar() async {
-  debugPrint('📅 [Background] Syncing calendar...');
-  await Future.delayed(const Duration(milliseconds: 500));
-  debugPrint('✅ [Background] Calendar synced');
-}
+// Calendar reading removed - server handles Google Calendar
+// App will only write events to device calendar when received from server
 
 Future<void> _backgroundSyncAlarms() async {
   debugPrint('⏰ [Background] Syncing alarms...');
@@ -119,8 +119,15 @@ class SyncService extends ChangeNotifier {
 
     // Register periodic background task
     try {
-      if (!kIsWeb) {
-        // Register periodic task (every 15 minutes minimum on Android, varies on iOS)
+      if (kIsWeb) {
+        debugPrint('⚠️ Background sync not supported on web platform');
+      } else if (Platform.isIOS) {
+        // iOS doesn't support periodic background tasks like Android
+        // iOS will only sync when app is opened or in foreground
+        debugPrint('⚠️ Background sync not supported on iOS');
+        debugPrint('💡 Data will sync automatically when you open the app');
+      } else {
+        // Android: Register periodic task (every 15 minutes minimum)
         await Workmanager().registerPeriodicTask(
           syncTaskName,
           syncTaskTag,
@@ -132,8 +139,6 @@ class SyncService extends ChangeNotifier {
           existingWorkPolicy: ExistingWorkPolicy.replace,
         );
         debugPrint('✅ Background task registered successfully');
-      } else {
-        debugPrint('⚠️ Background sync not supported on web platform');
       }
     } catch (e) {
       debugPrint('❌ Failed to register background task: $e');
@@ -184,7 +189,7 @@ class SyncService extends ChangeNotifier {
       // Mock sync operations (replace with real API calls)
       await _syncNotes();
       await _syncContacts();
-      await _syncCalendar();
+      // Calendar reading removed - server handles Google Calendar
       await _syncAlarms();
       await _syncCallRegistry();
 
@@ -227,47 +232,30 @@ class SyncService extends ChangeNotifier {
     debugPrint('✅ Notes synced');
   }
 
-  /// Sync contacts with server (mock implementation)
+  /// Sync contacts with server
   Future<void> _syncContacts() async {
     debugPrint('👥 Syncing contacts...');
     
-    // Simulate API call
-    await Future.delayed(const Duration(milliseconds: 600));
-
-    // In real implementation, fetch device contacts and send to server:
-    // final contacts = await _fetchDeviceContacts();
+    // Fetch real device contacts
+    final contactsData = await _fetchDeviceContacts();
+    debugPrint('📱 Fetched ${contactsData.length} contacts from device');
+    
+    // TODO: Send to remote agent server once API is ready
     // final response = await http.post(
     //   Uri.parse('${AppConfig.agentApiBaseUrl}/sync/contacts'),
     //   headers: {
     //     'Authorization': 'Bearer ${AppConfig.agentApiKey}',
     //     'Content-Type': 'application/json',
     //   },
-    //   body: jsonEncode({'contacts': contacts}),
+    //   body: jsonEncode({'contacts': contactsData}),
     // );
 
-    debugPrint('✅ Contacts synced');
+    debugPrint('✅ Contacts synced (${contactsData.length} contacts)');
   }
 
-  /// Sync calendar with server (mock implementation)
-  Future<void> _syncCalendar() async {
-    debugPrint('📅 Syncing calendar...');
-    
-    // Simulate API call
-    await Future.delayed(const Duration(milliseconds: 700));
-
-    // In real implementation, fetch calendar events and send to server:
-    // final events = await _fetchCalendarEvents();
-    // final response = await http.post(
-    //   Uri.parse('${AppConfig.agentApiBaseUrl}/sync/calendar'),
-    //   headers: {
-    //     'Authorization': 'Bearer ${AppConfig.agentApiKey}',
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: jsonEncode({'events': events}),
-    // );
-
-    debugPrint('✅ Calendar synced');
-  }
+  // Calendar reading removed - server handles Google Calendar via API
+  // Future method for writing events to device calendar will be added when needed
+  // Example: Future<void> addEventToDeviceCalendar(Map<String, dynamic> eventData) async { ... }
 
   /// Sync alarms with server (mock implementation)
   Future<void> _syncAlarms() async {
@@ -333,4 +321,88 @@ class SyncService extends ChangeNotifier {
       return '${difference.inDays}d ago';
     }
   }
+
+  /// Fetch contacts from device
+  Future<List<Map<String, dynamic>>> _fetchDeviceContacts() async {
+    final List<Map<String, dynamic>> contactsList = [];
+    
+    try {
+      var status = await Permission.contacts.status;
+      debugPrint('📱 Contacts permission INITIAL status: $status');
+      debugPrint('   - isGranted: ${status.isGranted}');
+      debugPrint('   - isDenied: ${status.isDenied}');
+      debugPrint('   - isPermanentlyDenied: ${status.isPermanentlyDenied}');
+      debugPrint('   - isLimited: ${status.isLimited}');
+      debugPrint('   - isRestricted: ${status.isRestricted}');
+      
+      if (!status.isGranted) {
+        debugPrint('📱 Requesting contacts permission...');
+        status = await Permission.contacts.request();
+        debugPrint('📱 Contacts permission AFTER request: $status');
+        debugPrint('   - isGranted: ${status.isGranted}');
+        debugPrint('   - isDenied: ${status.isDenied}');
+        debugPrint('   - isPermanentlyDenied: ${status.isPermanentlyDenied}');
+      }
+      
+      if (status.isGranted) {
+        debugPrint('✅ Contacts permission granted! Fetching contacts...');
+        final contacts = await ContactsService.getContacts();
+        debugPrint('📱 Found ${contacts.length} contacts');
+        
+        for (final contact in contacts) {
+          contactsList.add({
+            'id': contact.identifier,
+            'name': contact.displayName ?? 'Unknown',
+            'phones': contact.phones?.map((p) => p.value).toList() ?? [],
+            'emails': contact.emails?.map((e) => e.value).toList() ?? [],
+          });
+        }
+      } else if (status.isPermanentlyDenied) {
+        debugPrint('⚠️ Contacts permission permanently denied');
+        debugPrint('💡 Opening Settings to enable Contacts permission...');
+        await openAppSettings();
+      } else {
+        debugPrint('⚠️ Contacts permission denied');
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error fetching contacts: $e');
+      debugPrint('Stack trace: $stackTrace');
+    }
+    
+    return contactsList;
+  }
+
+  // Calendar reading removed - server handles Google Calendar
+  // Future: Add method to write events to device calendar when received from server
+  // Future<bool> addEventToDeviceCalendar({
+  //   required String title,
+  //   required DateTime startDate,
+  //   required DateTime endDate,
+  //   String? description,
+  //   String? location,
+  //   bool allDay = false,
+  // }) async {
+  //   try {
+  //     final deviceCalendarPlugin = DeviceCalendarPlugin();
+  //     final calendarsResult = await deviceCalendarPlugin.retrieveCalendars();
+  //     
+  //     if (calendarsResult.isSuccess && calendarsResult.data != null && calendarsResult.data!.isNotEmpty) {
+  //       final calendar = calendarsResult.data!.first; // Use default calendar
+  //       final event = Event(calendar.id);
+  //       event.title = title;
+  //       event.start = TZDateTime.from(startDate, local);
+  //       event.end = TZDateTime.from(endDate, local);
+  //       event.description = description;
+  //       event.location = location;
+  //       event.allDay = allDay;
+  //       
+  //       final createResult = await deviceCalendarPlugin.createOrUpdateEvent(event);
+  //       return createResult?.isSuccess ?? false;
+  //     }
+  //     return false;
+  //   } catch (e) {
+  //     debugPrint('❌ Error creating calendar event: $e');
+  //     return false;
+  //   }
+  // }
 }

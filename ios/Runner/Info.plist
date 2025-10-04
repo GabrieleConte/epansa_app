@@ -45,53 +45,41 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	
-	<!-- Privacy - Contacts Usage Description -->
 	<key>NSContactsUsageDescription</key>
 	<string>EPANSA needs access to your contacts to help you manage and interact with them through voice commands.</string>
-	
-	<!-- Privacy - Calendars Usage Description -->
-	<key>NSCalendarsUsageDescription</key>
-	<string>EPANSA needs access to your calendar to create, view, and manage your events and appointments.</string>
-	
-	<!-- Privacy - Microphone Usage Description -->
 	<key>NSMicrophoneUsageDescription</key>
 	<string>EPANSA needs microphone access to enable voice commands and voice input for your assistant.</string>
-	
-	<!-- Privacy - Photo Library Usage Description -->
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>EPANSA needs access to your photos to share and manage images through your assistant.</string>
-	
-	<!-- Privacy - Photo Library Add Usage Description -->
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>EPANSA needs permission to save photos and images to your library.</string>
-	
-	<!-- Privacy - Reminders Usage Description -->
 	<key>NSRemindersUsageDescription</key>
 	<string>EPANSA needs access to your reminders to help you manage tasks and to-do lists.</string>
-	
-	<!-- Privacy - Speech Recognition Usage Description -->
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>EPANSA uses speech recognition to understand your voice commands and queries.</string>
-	
-	<!-- Background Modes for background sync -->
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
 		<string>processing</string>
 	</array>
-	
-	<!-- Background fetch interval (minimum 15 minutes) -->
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.example.epansaApp.sync</string>
 	</array>
-	
-	<!-- Privacy - Alarms Usage Description -->
 	<key>NSAlarmsUsageDescription</key>
 	<string>EPANSA needs access to set and manage your alarms through voice commands and automation.</string>
-	
-	<!-- Note: iOS does not allow direct access to call logs for privacy reasons -->
-	<!-- Call history sync will be limited to server-side tracking of calls made through the app -->
+	<key>GIDClientID</key>
+	<string>519447147425-fa8ive3e7kf8jjtt8d5ii7kljvmo0lue.apps.googleusercontent.com</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.519447147425-fa8ive3e7kf8jjtt8d5ii7kljvmo0lue</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

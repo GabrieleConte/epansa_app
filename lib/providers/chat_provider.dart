@@ -111,14 +111,16 @@ class ChatProvider extends ChangeNotifier {
       type: MessageType.actionConfirmed,
     );
     _messages.add(confirmMessage);
+    notifyListeners();
 
     // Simulate action execution
     await Future.delayed(const Duration(seconds: 1));
 
+    // Note: Calendar events are now handled server-side via Google Calendar API
+    final resultMessage = 'Successfully completed the ${_getActionName(action.type)}!';
+
     // Add success message
-    final successMessage = ChatMessage.assistant(
-      'Successfully completed the ${_getActionName(action.type)}!',
-    );
+    final successMessage = ChatMessage.assistant(resultMessage);
     _messages.add(successMessage);
 
     notifyListeners();

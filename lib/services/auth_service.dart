@@ -10,6 +10,8 @@ class AuthService extends ChangeNotifier {
   AuthService() {
     // Initialize GoogleSignIn with platform-specific config
     _googleSignIn = GoogleSignIn(
+      // For iOS/Android: No clientId needed (uses native config from Info.plist)
+      // For Web: use clientId with web client ID
       clientId: kIsWeb ? AppConfig.googleOAuthClientIdWeb : null,
       scopes: [
         'email',
@@ -59,7 +61,14 @@ class AuthService extends ChangeNotifier {
   /// Sign in with Google
   Future<bool> signIn() async {
     try {
+      debugPrint('🔵 GoogleSignIn.signIn() called');
+      debugPrint('🔵 Platform: ${kIsWeb ? "Web" : "iOS/Android"}');
+      debugPrint('🔵 Client ID configured: ${kIsWeb ? AppConfig.googleOAuthClientIdWeb : AppConfig.googleOAuthClientIdIos}');
+      
       final account = await _googleSignIn.signIn();
+      
+      debugPrint('🔵 Sign-in account result: ${account?.email ?? "null"}');
+      
       if (account != null) {
         _currentUser = account;
         _isSignedIn = true;
@@ -68,12 +77,15 @@ class AuthService extends ChangeNotifier {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('was_signed_in', true);
         
+        debugPrint('✅ Sign-in successful: ${account.email}');
         notifyListeners();
         return true;
       }
+      debugPrint('⚠️ Sign-in returned null (user cancelled?)');
       return false;
-    } catch (error) {
-      debugPrint('Error signing in: $error');
+    } catch (error, stackTrace) {
+      debugPrint('❌ Error signing in: $error');
+      debugPrint('❌ Stack trace: $stackTrace');
       return false;
     }
   }

@@ -61,6 +61,13 @@ dependencies:
   
   # Background task execution
   workmanager: ^0.5.2
+  
+  # Device data access
+  contacts_service: ^0.6.3  # For reading contacts
+  call_log: ^4.0.0           # For reading call logs (Android only)
+  device_calendar: ^4.3.2    # For reading calendar events
+  android_alarm_manager_plus: ^4.0.3  # For alarm management (Android)
+  flutter_local_notifications: ^17.0.0  # For notifications and alarms (iOS/Android)
 
 dev_dependencies:
   flutter_test:

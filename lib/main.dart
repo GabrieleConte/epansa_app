@@ -7,6 +7,7 @@ import 'package:epansa_app/providers/chat_provider.dart';
 import 'package:epansa_app/services/auth_service.dart';
 import 'package:epansa_app/services/voice_input_service.dart';
 import 'package:epansa_app/services/sync_service.dart';
+import 'package:epansa_app/services/alarm_service.dart';
 import 'package:epansa_app/presentation/screens/login_screen.dart';
 import 'package:epansa_app/presentation/screens/chat_screen.dart';
 
@@ -47,6 +48,9 @@ class EpansaApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => VoiceInputService()),
+        ChangeNotifierProvider(
+          create: (_) => AlarmService()..initialize(),
+        ),
         ChangeNotifierProvider(create: (_) => SyncService()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
       ],

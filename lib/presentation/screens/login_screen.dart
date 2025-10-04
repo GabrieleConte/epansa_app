@@ -46,24 +46,43 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   Future<void> _handleGoogleSignIn() async {
     setState(() => _isLoading = true);
 
-    final authService = context.read<AuthService>();
-    final success = await authService.signIn();
+    try {
+      debugPrint('🔵 Attempting Google Sign-In...');
+      final authService = context.read<AuthService>();
+      final success = await authService.signIn();
 
-    if (!mounted) return;
+      debugPrint('🔵 Sign-in result: $success');
 
-    if (success) {
-      // Navigate to sync setup screen
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const SyncSetupScreen(),
-        ),
-      );
-    } else {
+      if (!mounted) return;
+
+      if (success) {
+        debugPrint('✅ Sign-in successful, navigating to sync setup');
+        // Navigate to sync setup screen
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const SyncSetupScreen(),
+          ),
+        );
+      } else {
+        debugPrint('❌ Sign-in failed');
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sign in failed. Please check your internet connection and try again.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Sign-in error: $e');
+      if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Sign in failed. Please try again.'),
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
         ),
       );
     }
@@ -72,7 +91,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      backgroundColor: const Color(0xFF87CEEB),
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -85,6 +108,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
         ),
         child: SafeArea(
+          bottom: false,
           child: SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 40.0),
@@ -163,12 +187,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                             )
                           : ElevatedButton.icon(
                               onPressed: _handleGoogleSignIn,
-                              icon: Image.asset(
-                                'google_logo.png',
-                                height: 24,
-                                width: 24,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    const Icon(Icons.login, color: Color(0xFF4A90E2)),
+                              icon: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Icon(
+                                  Icons.g_mobiledata_rounded,
+                                  size: 24,
+                                  color: Color(0xFF4285F4),
+                                ),
                               ),
                               label: const Text(
                                 'Sign in with Google',
