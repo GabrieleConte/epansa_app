@@ -45,6 +45,8 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>EPANSA Access most functions for calendar viewing and editing.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>EPANSA needs access to your contacts to help you manage and interact with them through voice commands.</string>
 	<key>NSMicrophoneUsageDescription</key>
@@ -59,12 +61,14 @@
 	<string>EPANSA uses speech recognition to understand your voice commands and queries.</string>
 	<key>UIBackgroundModes</key>
 	<array>
+		<string>audio</string>
 		<string>fetch</string>
 		<string>processing</string>
 	</array>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>com.example.epansaApp.sync</string>
+		<string>com.gdelataillade.fetch</string>
 	</array>
 	<key>NSAlarmsUsageDescription</key>
 	<string>EPANSA needs access to set and manage your alarms through voice commands and automation.</string>

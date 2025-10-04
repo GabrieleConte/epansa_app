@@ -1,373 +1,246 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:alarm/alarm.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'dart:io' show Platform;
-import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest_all.dart' as tz_data;
 
-/// Model for an alarm
-class Alarm {
-  final String id;
-  final String label;
-  final TimeOfDay time;
-  final List<int> repeatDays; // 1 = Monday, 7 = Sunday, empty = one-time
-  final bool isEnabled;
-  final DateTime? nextTrigger;
-
-  Alarm({
-    required this.id,
-    required this.label,
-    required this.time,
-    this.repeatDays = const [],
-    this.isEnabled = true,
-    this.nextTrigger,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'label': label,
-        'hour': time.hour,
-        'minute': time.minute,
-        'repeatDays': repeatDays,
-        'isEnabled': isEnabled,
-        'nextTrigger': nextTrigger?.toIso8601String(),
-      };
-
-  factory Alarm.fromJson(Map<String, dynamic> json) => Alarm(
-        id: json['id'] as String,
-        label: json['label'] as String,
-        time: TimeOfDay(
-          hour: json['hour'] as int,
-          minute: json['minute'] as int,
-        ),
-        repeatDays: (json['repeatDays'] as List<dynamic>?)?.cast<int>() ?? [],
-        isEnabled: json['isEnabled'] as bool? ?? true,
-        nextTrigger: json['nextTrigger'] != null
-            ? DateTime.parse(json['nextTrigger'] as String)
-            : null,
-      );
-
-  String getRepeatText() {
-    if (repeatDays.isEmpty) return 'Once';
-    if (repeatDays.length == 7) return 'Every day';
-    if (repeatDays.length == 5 &&
-        repeatDays.contains(1) &&
-        repeatDays.contains(5)) {
-      return 'Weekdays';
-    }
-    if (repeatDays.length == 2 &&
-        repeatDays.contains(6) &&
-        repeatDays.contains(7)) {
-      return 'Weekends';
-    }
-
-    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return repeatDays.map((d) => dayNames[d - 1]).join(', ');
-  }
-
-  String getTimeText() {
-    final hour = time.hour.toString().padLeft(2, '0');
-    final minute = time.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
-  }
-}
-
-/// Service for managing device alarms
+/// Service for managing device alarms using the alarm package
+/// This package provides proper alarm functionality that works even when app is terminated
 class AlarmService extends ChangeNotifier {
-  final FlutterLocalNotificationsPlugin _notifications =
-      FlutterLocalNotificationsPlugin();
-
-  List<Alarm> _alarms = [];
+  List<AlarmSettings> _alarms = [];
   bool _isInitialized = false;
+  StreamSubscription<AlarmSettings>? _alarmSubscription;
 
-  List<Alarm> get alarms => _alarms;
+  List<AlarmSettings> get alarms => _alarms;
   bool get isInitialized => _isInitialized;
 
   /// Initialize the alarm service
   Future<void> initialize() async {
     if (_isInitialized) return;
 
-    debugPrint('🔔 Initializing alarm service...');
+    debugPrint('🔔 Initializing alarm service with alarm package...');
 
-    // Initialize timezone data
-    tz_data.initializeTimeZones();
+    try {
+      // The alarm package is already initialized in main.dart with Alarm.init()
+      // Here we just set up the service
+      debugPrint('✅ Alarm package ready');
 
-    // Initialize notifications
-    await _initializeNotifications();
+      // Request permissions based on platform
+      if (Platform.isAndroid) {
+        await _checkAndroidPermissions();
+      } else if (Platform.isIOS) {
+        await _checkIOSPermissions();
+      }
 
-    // Load saved alarms (you can use SharedPreferences or local DB)
-    await _loadAlarms();
+      // Load existing alarms
+      await _loadAlarms();
 
-    _isInitialized = true;
-    debugPrint('✅ Alarm service initialized');
-  }
+      // Listen to alarm ring events
+      _alarmSubscription = Alarm.ringStream.stream.listen(_onAlarmRing);
 
-  /// Initialize local notifications
-  Future<void> _initializeNotifications() async {
-    // Android settings
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-
-    // iOS settings
-    final iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-      onDidReceiveLocalNotification: (id, title, body, payload) async {
-        debugPrint('iOS notification received: $title');
-      },
-    );
-
-    final settings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-    );
-
-    await _notifications.initialize(
-      settings,
-      onDidReceiveNotificationResponse: (details) {
-        debugPrint('Notification tapped: ${details.payload}');
-      },
-    );
-
-    // Request permissions
-    if (Platform.isAndroid) {
-      await _notifications
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.requestNotificationsPermission();
-          
-      await _notifications
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.requestExactAlarmsPermission();
-    } else if (Platform.isIOS) {
-      await _notifications
-          .resolvePlatformSpecificImplementation<
-              IOSFlutterLocalNotificationsPlugin>()
-          ?.requestPermissions(
-            alert: true,
-            badge: true,
-            sound: true,
-          );
+      _isInitialized = true;
+      debugPrint('✅ Alarm service initialized successfully');
+    } catch (e) {
+      debugPrint('❌ Failed to initialize alarm service: $e');
     }
   }
 
-  /// Load alarms from storage
-  Future<void> _loadAlarms() async {
-    // TODO: Load from SharedPreferences or local database
-    // For now, start with empty list
-    _alarms = [];
+  /// Check and request iOS permissions
+  Future<void> _checkIOSPermissions() async {
+    try {
+      debugPrint('📱 Checking iOS notification permissions...');
+      
+      // Check notification permission
+      final notificationStatus = await Permission.notification.status;
+      debugPrint('📊 iOS notification status: $notificationStatus');
+      
+      if (notificationStatus.isDenied || notificationStatus.isLimited) {
+        debugPrint('📱 Requesting iOS notification permission...');
+        final result = await Permission.notification.request();
+        debugPrint('📊 iOS notification permission result: $result');
+        
+        if (result.isPermanentlyDenied) {
+          debugPrint('⚠️ Notification permission permanently denied. User needs to enable in Settings.');
+          debugPrint('💡 Go to: Settings > EPANSA > Notifications');
+        }
+      } else if (notificationStatus.isGranted) {
+        debugPrint('✅ iOS notification permission already granted');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error checking iOS permissions: $e');
+    }
   }
 
-  /// Save alarms to storage
-  Future<void> _saveAlarms() async {
-    // TODO: Save to SharedPreferences or local database
-    debugPrint('💾 Saving ${_alarms.length} alarms');
+  /// Check and request Android permissions
+  Future<void> _checkAndroidPermissions() async {
+    try {
+      // Check notification permission
+      final notificationStatus = await Permission.notification.status;
+      if (notificationStatus.isDenied) {
+        debugPrint('📱 Requesting notification permission...');
+        await Permission.notification.request();
+      }
+
+      // Check schedule exact alarm permission (Android 12+)
+      final scheduleAlarmStatus = await Permission.scheduleExactAlarm.status;
+      debugPrint('📅 Schedule exact alarm permission: $scheduleAlarmStatus');
+      if (scheduleAlarmStatus.isDenied) {
+        debugPrint('📱 Requesting schedule exact alarm permission...');
+        await Permission.scheduleExactAlarm.request();
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error checking Android permissions: $e');
+    }
+  }
+
+  /// Load existing alarms
+  Future<void> _loadAlarms() async {
+    _alarms = await Alarm.getAlarms();
+    _alarms.sort((a, b) => a.dateTime.isBefore(b.dateTime) ? 0 : 1);
+    debugPrint('📋 Loaded ${_alarms.length} existing alarms');
+    notifyListeners();
+  }
+
+  /// Handle alarm ring event
+  void _onAlarmRing(AlarmSettings alarmSettings) async {
+    debugPrint('🔔 Alarm ringing: ${alarmSettings.notificationSettings.title}');
+    // You can add custom behavior here, like navigating to a screen
+    // For now, we just reload the alarms
+    await _loadAlarms();
   }
 
   /// Create a new alarm
+  /// Returns true if successful, false otherwise
   Future<bool> createAlarm({
     required String label,
     required TimeOfDay time,
     List<int> repeatDays = const [],
+    bool testMode = false, // For testing: set alarm in 10 seconds
   }) async {
     try {
-      final alarm = Alarm(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        label: label,
-        time: time,
-        repeatDays: repeatDays,
-        isEnabled: true,
-      );
+      final now = DateTime.now();
+      DateTime alarmDateTime;
 
-      await _scheduleAlarm(alarm);
-
-      _alarms.add(alarm);
-      await _saveAlarms();
-      notifyListeners();
-
-      debugPrint('✅ Alarm created: ${alarm.label} at ${alarm.getTimeText()}');
-      return true;
-    } catch (e) {
-      debugPrint('❌ Failed to create alarm: $e');
-      return false;
-    }
-  }
-
-  /// Schedule an alarm notification
-  Future<void> _scheduleAlarm(Alarm alarm) async {
-    final now = DateTime.now();
-    var scheduledDate = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      alarm.time.hour,
-      alarm.time.minute,
-    );
-
-    // If the alarm time has passed today, schedule for tomorrow
-    if (scheduledDate.isBefore(now)) {
-      scheduledDate = scheduledDate.add(const Duration(days: 1));
-    }
-
-    final tzScheduledDate = tz.TZDateTime.from(scheduledDate, tz.local);
-
-    // Notification details
-    const androidDetails = AndroidNotificationDetails(
-      'alarm_channel',
-      'Alarms',
-      channelDescription: 'Alarm notifications',
-      importance: Importance.max,
-      priority: Priority.high,
-      playSound: true,
-      enableVibration: true,
-      fullScreenIntent: true,
-      category: AndroidNotificationCategory.alarm,
-    );
-
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-      sound: 'default',
-      interruptionLevel: InterruptionLevel.timeSensitive,
-    );
-
-    const details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    // Schedule the notification
-    if (alarm.repeatDays.isEmpty) {
-      // One-time alarm
-      await _notifications.zonedSchedule(
-        int.parse(alarm.id),
-        '⏰ ${alarm.label}',
-        'Alarm',
-        tzScheduledDate,
-        details,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-      );
-      debugPrint('📅 Scheduled one-time alarm for ${tzScheduledDate}');
-    } else {
-      // Repeating alarm - schedule for each day
-      for (final day in alarm.repeatDays) {
-        final dayOfWeek = day % 7; // Convert 1-7 to 0-6
-        await _scheduleRepeatingAlarm(alarm, dayOfWeek, details);
-      }
-      debugPrint('🔁 Scheduled repeating alarm for ${alarm.repeatDays.length} days');
-    }
-  }
-
-  /// Schedule a repeating alarm for a specific day of week
-  Future<void> _scheduleRepeatingAlarm(
-    Alarm alarm,
-    int dayOfWeek,
-    NotificationDetails details,
-  ) async {
-    final now = DateTime.now();
-    var scheduledDate = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      alarm.time.hour,
-      alarm.time.minute,
-    );
-
-    // Find next occurrence of this day
-    while (scheduledDate.weekday != dayOfWeek || scheduledDate.isBefore(now)) {
-      scheduledDate = scheduledDate.add(const Duration(days: 1));
-    }
-
-    final tzScheduledDate = tz.TZDateTime.from(scheduledDate, tz.local);
-
-    // Create unique ID for each day
-    final notificationId = int.parse(alarm.id) + dayOfWeek;
-
-    await _notifications.zonedSchedule(
-      notificationId,
-      '⏰ ${alarm.label}',
-      'Alarm',
-      tzScheduledDate,
-      details,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
-    );
-  }
-
-  /// Delete an alarm
-  Future<bool> deleteAlarm(String alarmId) async {
-    try {
-      // Cancel notification
-      await _notifications.cancel(int.parse(alarmId));
-
-      // Cancel all day-specific notifications for repeating alarms
-      for (int i = 0; i < 7; i++) {
-        await _notifications.cancel(int.parse(alarmId) + i);
-      }
-
-      _alarms.removeWhere((a) => a.id == alarmId);
-      await _saveAlarms();
-      notifyListeners();
-
-      debugPrint('✅ Alarm deleted: $alarmId');
-      return true;
-    } catch (e) {
-      debugPrint('❌ Failed to delete alarm: $e');
-      return false;
-    }
-  }
-
-  /// Toggle alarm enabled/disabled
-  Future<bool> toggleAlarm(String alarmId) async {
-    try {
-      final index = _alarms.indexWhere((a) => a.id == alarmId);
-      if (index == -1) return false;
-
-      final alarm = _alarms[index];
-      final newAlarm = Alarm(
-        id: alarm.id,
-        label: alarm.label,
-        time: alarm.time,
-        repeatDays: alarm.repeatDays,
-        isEnabled: !alarm.isEnabled,
-      );
-
-      if (newAlarm.isEnabled) {
-        await _scheduleAlarm(newAlarm);
+      if (testMode) {
+        // TEST MODE: Set alarm for 10 seconds from now
+        alarmDateTime = now.add(const Duration(seconds: 10));
+        debugPrint('⚠️ TEST MODE: Alarm will fire in 10 seconds at $alarmDateTime');
       } else {
-        await _notifications.cancel(int.parse(alarm.id));
-        for (int i = 0; i < 7; i++) {
-          await _notifications.cancel(int.parse(alarm.id) + i);
+        // Calculate alarm time
+        alarmDateTime = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          time.hour,
+          time.minute,
+        );
+
+        // If the alarm time has passed today, schedule for tomorrow
+        if (alarmDateTime.isBefore(now)) {
+          alarmDateTime = alarmDateTime.add(const Duration(days: 1));
         }
       }
 
-      _alarms[index] = newAlarm;
-      await _saveAlarms();
-      notifyListeners();
+      // Generate unique ID
+      final id = alarmDateTime.millisecondsSinceEpoch % 2147483647; // Keep within 32-bit int range
 
-      debugPrint('✅ Alarm toggled: ${newAlarm.label} - ${newAlarm.isEnabled}');
+      // Create alarm settings with test mode enabled (fires in 10 seconds)
+      final alarmSettings = AlarmSettings(
+        id: id,
+        dateTime: alarmDateTime,
+        assetAudioPath: 'assets/alarm.mp3', // TODO: Add proper audio file
+        loopAudio: true,
+        vibrate: true,
+        volumeSettings: VolumeSettings.fade(
+          volume: 0.8,
+          fadeDuration: const Duration(seconds: 3),
+        ),
+        notificationSettings: NotificationSettings(
+          title: testMode ? '⏰ EPANSA Test Alarm' : '⏰ $label',
+          body: testMode 
+              ? '🔔 Tap notification or swipe to stop' 
+              : 'Alarm ringing - Tap to stop',
+          stopButton: Platform.isIOS ? 'Stop Alarm' : 'Stop',
+        ),
+        warningNotificationOnKill: Platform.isIOS,
+        androidFullScreenIntent: true, // Show full screen on Android
+      );
+
+      // Set the alarm
+      await Alarm.set(alarmSettings: alarmSettings);
+
+      // Reload alarms
+      await _loadAlarms();
+
+      debugPrint('✅ Alarm created: $label at ${alarmDateTime.toString()} (ID: $id)');
+      debugPrint('📱 Total alarms scheduled: ${_alarms.length}');
+      if (Platform.isIOS) {
+        debugPrint('⚠️ Note: iOS alarms are notifications, not native Clock alarms');
+        debugPrint('💡 The notification will fire at the scheduled time if permissions are granted');
+      }
+
       return true;
-    } catch (e) {
-      debugPrint('❌ Failed to toggle alarm: $e');
+    } catch (e, stackTrace) {
+      debugPrint('❌ Failed to create alarm: $e');
+      debugPrint('Stack trace: $stackTrace');
       return false;
     }
+  }
+
+  /// Stop an alarm
+  Future<bool> stopAlarm(int id) async {
+    try {
+      await Alarm.stop(id);
+      await _loadAlarms();
+      debugPrint('✅ Alarm stopped: $id');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Failed to stop alarm: $e');
+      return false;
+    }
+  }
+
+  /// Stop all alarms
+  Future<void> stopAll() async {
+    try {
+      await Alarm.stopAll();
+      await _loadAlarms();
+      debugPrint('✅ All alarms stopped');
+    } catch (e) {
+      debugPrint('❌ Failed to stop all alarms: $e');
+    }
+  }
+
+  /// Check if any alarm is currently ringing
+  Future<bool> isRinging() async {
+    return Alarm.hasAlarm();
+  }
+
+  /// Check if notification permissions are granted
+  Future<bool> hasNotificationPermission() async {
+    final status = await Permission.notification.status;
+    return status.isGranted;
   }
 
   /// Get all alarms for syncing
   Future<List<Map<String, dynamic>>> getAllAlarmsForSync() async {
-    return _alarms.map((a) => a.toJson()).toList();
+    return _alarms.map((a) => {
+      'id': a.id,
+      'label': a.notificationSettings.title,
+      'time': a.dateTime.toIso8601String(),
+    }).toList();
   }
 
   /// Fetch alarms from device (returns current managed alarms)
   Future<List<Map<String, dynamic>>> fetchDeviceAlarms() async {
     debugPrint('📱 Fetching ${_alarms.length} alarms from alarm service');
     return getAllAlarmsForSync();
+  }
+
+  @override
+  void dispose() {
+    _alarmSubscription?.cancel();
+    super.dispose();
   }
 }

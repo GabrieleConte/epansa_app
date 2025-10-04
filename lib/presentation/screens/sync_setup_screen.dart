@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:epansa_app/services/sync_service.dart';
+import 'package:epansa_app/services/alarm_service.dart';
 import 'package:epansa_app/presentation/screens/chat_screen.dart';
 
 /// Sync setup screen - asks user to enable background sync
@@ -13,6 +14,24 @@ class SyncSetupScreen extends StatefulWidget {
 
 class _SyncSetupScreenState extends State<SyncSetupScreen> {
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Request notification permissions when this screen loads
+    _requestNotificationPermissions();
+  }
+
+  Future<void> _requestNotificationPermissions() async {
+    try {
+      final alarmService = context.read<AlarmService>();
+      // This will trigger the iOS permission dialog if not already granted
+      await alarmService.hasNotificationPermission();
+      debugPrint('✅ Notification permissions checked on sync setup');
+    } catch (e) {
+      debugPrint('⚠️ Error checking notification permissions: $e');
+    }
+  }
 
   Future<void> _enableBackgroundSync() async {
     setState(() => _isLoading = true);

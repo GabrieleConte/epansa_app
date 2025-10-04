@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:epansa_app/data/models/chat_message.dart';
 import 'package:epansa_app/data/api/agent_api_client.dart';
+import 'package:epansa_app/services/alarm_service.dart';
 
 /// Chat provider managing conversation state
 class ChatProvider extends ChangeNotifier {
   final AgentApiClient _apiClient;
+  final AlarmService? _alarmService;
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
   PendingAction? _pendingAction;
@@ -13,8 +16,9 @@ class ChatProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   PendingAction? get pendingAction => _pendingAction;
 
-  ChatProvider({AgentApiClient? apiClient})
-      : _apiClient = apiClient ?? AgentApiClient(useMockData: true);
+  ChatProvider({AgentApiClient? apiClient, AlarmService? alarmService})
+      : _apiClient = apiClient ?? AgentApiClient(useMockData: true),
+        _alarmService = alarmService;
 
   /// Send a message and get response
   Future<void> sendMessage(String text) async {
@@ -113,15 +117,66 @@ class ChatProvider extends ChangeNotifier {
     _messages.add(confirmMessage);
     notifyListeners();
 
-    // Simulate action execution
-    await Future.delayed(const Duration(seconds: 1));
+    // Execute the action
+    bool success = false;
+    String resultMessage = '';
+
+    try {
+      if (action.type == ActionType.setAlarm && _alarmService != null) {
+        // Check notification permissions first
+        final hasPermission = await _alarmService.hasNotificationPermission();
+        
+        if (!hasPermission) {
+          // Permissions not granted - inform user
+          resultMessage = '⚠️ Notification Permission Required\n\n'
+              'To set alarms, please enable notifications:\n\n'
+              '1. Go to iPhone Settings\n'
+              '2. Find "Epansa App"\n'
+              '3. Tap "Notifications"\n'
+              '4. Enable "Allow Notifications"\n\n'
+              '💡 Then try setting the alarm again!';
+          success = false;
+        } else {
+          // Create alarm at 7:01 AM (test mode: fires in 10 seconds)
+          final alarmTime = const TimeOfDay(hour: 7, minute: 1);
+          success = await _alarmService.createAlarm(
+            label: 'EPANSA Alarm',
+            time: alarmTime,
+            repeatDays: [], // One-time alarm
+            testMode: true, // Test mode: alarm fires in 10 seconds
+          );
+          
+          if (success) {
+            final alarmCount = _alarmService.alarms.length;
+            resultMessage = '✅ Alarm set successfully! 🔔\n\n'
+                '⏰ TEST MODE: Will ring in 10 SECONDS\n\n'
+                'You now have $alarmCount alarm(s) scheduled.\n\n'
+                '📱 How to stop the alarm:\n'
+                '• On iOS: Tap the notification to open the stop screen\n'
+                '• On Android: Use the "Stop" button in the notification\n'
+                '• Or: Open the app when it rings\n\n'
+                '⚠️ Works even when app is closed!';
+          } else {
+            resultMessage = '❌ Failed to set alarm. Please check notification permissions in Settings.';
+          }
+        }
+      } else {
+        // Other action types - simulate execution
+        await Future.delayed(const Duration(seconds: 1));
+        success = true;
+        resultMessage = 'Successfully completed the ${_getActionName(action.type)}!';
+      }
+    } catch (e) {
+      debugPrint('❌ Error executing action: $e');
+      success = false;
+      resultMessage = 'Failed to execute action: $e';
+    }
 
     // Note: Calendar events are now handled server-side via Google Calendar API
-    final resultMessage = 'Successfully completed the ${_getActionName(action.type)}!';
 
-    // Add success message
-    final successMessage = ChatMessage.assistant(resultMessage);
-    _messages.add(successMessage);
+    // Add result message
+    final resultMsg = ChatMessage.assistant(resultMessage);
+    _messages.add(resultMsg);
 
     notifyListeners();
   }

@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:workmanager/workmanager.dart';
+import 'package:alarm/alarm.dart';
 import 'package:epansa_app/core/config/app_config.dart';
 import 'package:epansa_app/providers/chat_provider.dart';
 import 'package:epansa_app/services/auth_service.dart';
@@ -10,10 +12,15 @@ import 'package:epansa_app/services/sync_service.dart';
 import 'package:epansa_app/services/alarm_service.dart';
 import 'package:epansa_app/presentation/screens/login_screen.dart';
 import 'package:epansa_app/presentation/screens/chat_screen.dart';
+import 'package:epansa_app/presentation/screens/alarm_ring_screen.dart';
 
 void main() async {
   // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize the alarm package
+  await Alarm.init();
+  debugPrint('✅ Alarm package initialized');
   
   // Initialize configuration from .env file
   await AppConfig.initialize();
@@ -39,8 +46,41 @@ void main() async {
   runApp(const EpansaApp());
 }
 
-class EpansaApp extends StatelessWidget {
+class EpansaApp extends StatefulWidget {
   const EpansaApp({super.key});
+
+  @override
+  State<EpansaApp> createState() => _EpansaAppState();
+}
+
+class _EpansaAppState extends State<EpansaApp> {
+  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  StreamSubscription<AlarmSettings>? _alarmSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen to alarm ring events
+    _alarmSubscription = Alarm.ringStream.stream.listen(_onAlarmRing);
+  }
+
+  @override
+  void dispose() {
+    _alarmSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _onAlarmRing(AlarmSettings alarmSettings) {
+    debugPrint('🔔 Alarm ringing: ${alarmSettings.notificationSettings.title}');
+    
+    // Navigate to alarm ring screen
+    navigatorKey.currentState?.push(
+      MaterialPageRoute(
+        builder: (context) => AlarmRingScreen(alarmSettings: alarmSettings),
+        fullscreenDialog: true,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,9 +92,16 @@ class EpansaApp extends StatelessWidget {
           create: (_) => AlarmService()..initialize(),
         ),
         ChangeNotifierProvider(create: (_) => SyncService()),
-        ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProxyProvider<AlarmService, ChatProvider>(
+          create: (context) => ChatProvider(
+            alarmService: context.read<AlarmService>(),
+          ),
+          update: (context, alarmService, previous) =>
+              previous ?? ChatProvider(alarmService: alarmService),
+        ),
       ],
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         title: 'EPANSA',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(

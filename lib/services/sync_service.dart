@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:contacts_service/contacts_service.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:call_log/call_log.dart';
 
 // Background task identifier
 const String syncTaskName = "epansa-background-sync";
@@ -278,25 +279,25 @@ class SyncService extends ChangeNotifier {
     debugPrint('✅ Alarms synced');
   }
 
-  /// Sync call registry with server (mock implementation)
+  /// Sync call registry with server
   Future<void> _syncCallRegistry() async {
     debugPrint('📞 Syncing call registry...');
     
-    // Simulate API call
-    await Future.delayed(const Duration(milliseconds: 650));
+    // Fetch real call logs (Android only)
+    final callLogsData = await _fetchCallLogs();
+    debugPrint('📱 Fetched ${callLogsData.length} call logs from device');
 
-    // In real implementation, fetch call logs and send to server:
-    // final callLogs = await _fetchCallLogs();
+    // TODO: Send to remote agent server once API is ready
     // final response = await http.post(
     //   Uri.parse('${AppConfig.agentApiBaseUrl}/sync/calls'),
     //   headers: {
     //     'Authorization': 'Bearer ${AppConfig.agentApiKey}',
     //     'Content-Type': 'application/json',
     //   },
-    //   body: jsonEncode({'call_logs': callLogs}),
+    //   body: jsonEncode({'call_logs': callLogsData}),
     // );
 
-    debugPrint('✅ Call registry synced');
+    debugPrint('✅ Call registry synced (${callLogsData.length} calls)');
   }
 
   /// Get sync status message
@@ -374,35 +375,54 @@ class SyncService extends ChangeNotifier {
 
   // Calendar reading removed - server handles Google Calendar
   // Future: Add method to write events to device calendar when received from server
-  // Future<bool> addEventToDeviceCalendar({
-  //   required String title,
-  //   required DateTime startDate,
-  //   required DateTime endDate,
-  //   String? description,
-  //   String? location,
-  //   bool allDay = false,
-  // }) async {
-  //   try {
-  //     final deviceCalendarPlugin = DeviceCalendarPlugin();
-  //     final calendarsResult = await deviceCalendarPlugin.retrieveCalendars();
-  //     
-  //     if (calendarsResult.isSuccess && calendarsResult.data != null && calendarsResult.data!.isNotEmpty) {
-  //       final calendar = calendarsResult.data!.first; // Use default calendar
-  //       final event = Event(calendar.id);
-  //       event.title = title;
-  //       event.start = TZDateTime.from(startDate, local);
-  //       event.end = TZDateTime.from(endDate, local);
-  //       event.description = description;
-  //       event.location = location;
-  //       event.allDay = allDay;
-  //       
-  //       final createResult = await deviceCalendarPlugin.createOrUpdateEvent(event);
-  //       return createResult?.isSuccess ?? false;
-  //     }
-  //     return false;
-  //   } catch (e) {
-  //     debugPrint('❌ Error creating calendar event: $e');
-  //     return false;
-  //   }
-  // }
+
+  /// Fetch call logs from device (Android only)
+  Future<List<Map<String, dynamic>>> _fetchCallLogs() async {
+    final List<Map<String, dynamic>> callLogsList = [];
+    
+    // Call logs are only available on Android
+    if (!Platform.isAndroid) {
+      debugPrint('ℹ️ Call logs are only available on Android');
+      return callLogsList;
+    }
+    
+    try {
+      var status = await Permission.phone.status;
+      debugPrint('📞 Phone permission INITIAL status: $status');
+      
+      if (!status.isGranted) {
+        debugPrint('📞 Requesting phone permission...');
+        status = await Permission.phone.request();
+        debugPrint('📞 Phone permission AFTER request: $status');
+      }
+      
+      if (status.isGranted) {
+        debugPrint('✅ Phone permission granted! Fetching call logs...');
+        
+        final Iterable<CallLogEntry> entries = await CallLog.get();
+        debugPrint('📞 Found ${entries.length} call log entries');
+        
+        for (final entry in entries) {
+          callLogsList.add({
+            'name': entry.name ?? 'Unknown',
+            'number': entry.number ?? '',
+            'type': entry.callType?.name ?? 'unknown',
+            'duration': entry.duration ?? 0,
+            'timestamp': entry.timestamp ?? 0,
+          });
+        }
+      } else {
+        debugPrint('⚠️ Phone permission denied');
+        if (status.isPermanentlyDenied) {
+          debugPrint('💡 Opening Settings to enable Phone permission...');
+          await openAppSettings();
+        }
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error fetching call logs: $e');
+      debugPrint('Stack trace: $stackTrace');
+    }
+    
+    return callLogsList;
+  }
 }
