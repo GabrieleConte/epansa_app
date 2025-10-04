@@ -45,8 +45,12 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCalendarsUsageDescription</key>
+	<string>EPANSA needs access to your calendar to create and manage events through voice commands.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>EPANSA Access most functions for calendar viewing and editing.</string>
+	<string>EPANSA needs full calendar access to create, view, and manage events.</string>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>EPANSA needs write access to your calendar to create and manage events.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>EPANSA needs access to your contacts to help you manage and interact with them through voice commands.</string>
 	<key>NSMicrophoneUsageDescription</key>

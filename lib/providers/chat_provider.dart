@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:epansa_app/data/models/chat_message.dart';
 import 'package:epansa_app/data/api/agent_api_client.dart';
 import 'package:epansa_app/services/alarm_service.dart';
+import 'package:epansa_app/services/calendar_event_service.dart';
 
 /// Chat provider managing conversation state
 class ChatProvider extends ChangeNotifier {
   final AgentApiClient _apiClient;
   final AlarmService? _alarmService;
+  final CalendarEventService? _calendarEventService;
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
   PendingAction? _pendingAction;
@@ -16,9 +18,13 @@ class ChatProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   PendingAction? get pendingAction => _pendingAction;
 
-  ChatProvider({AgentApiClient? apiClient, AlarmService? alarmService})
-      : _apiClient = apiClient ?? AgentApiClient(useMockData: true),
-        _alarmService = alarmService;
+  ChatProvider({
+    AgentApiClient? apiClient,
+    AlarmService? alarmService,
+    CalendarEventService? calendarEventService,
+  })  : _apiClient = apiClient ?? AgentApiClient(useMockData: true),
+        _alarmService = alarmService,
+        _calendarEventService = calendarEventService;
 
   /// Send a message and get response
   Future<void> sendMessage(String text) async {
@@ -34,6 +40,13 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Check for prototype commands
+      if (text.toLowerCase().trim() == 'set_event') {
+        _isLoading = false;
+        _handleSetEventCommand();
+        return;
+      }
+
       // Get response from agent
       final response = await _apiClient.sendMessage(text);
 
@@ -58,6 +71,39 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
+  /// Handle set_event prototype command
+  void _handleSetEventCommand() {
+    // Mock agent response for calendar event creation
+    final agentMessage = ChatMessage.assistant(
+      'I can help you create a calendar event! 📅\n\n'
+      'I\'d like to schedule:\n'
+      '• Event: EPANSA Meeting\n'
+      '• Date: Today\n'
+      '• Time: 2:00 PM - 3:00 PM\n'
+      '• Location: Office\n\n'
+      'Would you like me to create this event?',
+      type: MessageType.actionRequest,
+      actionId: DateTime.now().millisecondsSinceEpoch.toString(),
+    );
+    _messages.add(agentMessage);
+
+    // Create pending action for calendar event
+    _pendingAction = PendingAction(
+      id: agentMessage.actionId!,
+      description: 'Create calendar event: EPANSA Meeting',
+      type: ActionType.createEvent,
+      parameters: {
+        'title': 'EPANSA Meeting',
+        'description': 'Meeting created by EPANSA assistant',
+        'duration': 60, // minutes
+        'location': 'Office',
+      },
+    );
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
   /// Handle action request from agent
   void _handleActionRequest(String response) {
     final parts = response.split(':');
@@ -77,6 +123,7 @@ class ChatProvider extends ChangeNotifier {
       case 'SET_ALARM':
         actionType = ActionType.setAlarm;
         break;
+      case 'SET_EVENT':
       case 'CREATE_EVENT':
         actionType = ActionType.createEvent;
         break;
@@ -158,6 +205,49 @@ class ChatProvider extends ChangeNotifier {
                 '⚠️ Works even when app is closed!';
           } else {
             resultMessage = '❌ Failed to set alarm. Please check notification permissions in Settings.';
+          }
+        }
+      } else if (action.type == ActionType.createEvent && _calendarEventService != null) {
+        debugPrint('🔵 ChatProvider: Creating calendar event...');
+        
+        // Create calendar event for today
+        // The createEvent method will handle permission requests internally
+        final now = DateTime.now();
+        final startTime = DateTime(now.year, now.month, now.day, 14, 0); // 2 PM today
+        final endTime = startTime.add(const Duration(hours: 1)); // 1 hour duration
+        
+        debugPrint('🔵 ChatProvider: Calling createEvent...');
+        final eventId = await _calendarEventService.createEvent(
+          title: 'EPANSA Meeting',
+          description: 'Meeting created by EPANSA assistant',
+          startTime: startTime,
+          endTime: endTime,
+          location: 'Office',
+        );
+        debugPrint('🔵 ChatProvider: createEvent returned: $eventId');
+        
+        success = eventId != null;
+        
+        if (success) {
+          resultMessage = '✅ Calendar event created successfully! 📅\n\n'
+              'Event: EPANSA Meeting\n'
+              'Date: Today\n'
+              'Time: 2:00 PM - 3:00 PM\n'
+              'Location: Office\n\n'
+              '💡 Check your calendar app to see the event!';
+        } else {
+          // Check if permission was denied
+          final hasPermission = await _calendarEventService.hasCalendarPermission();
+          if (!hasPermission) {
+            resultMessage = '⚠️ Calendar Permission Required\n\n'
+                'To create calendar events, please enable calendar access:\n\n'
+                '1. Go to iPhone Settings\n'
+                '2. Find "Epansa App"\n'
+                '3. Tap "Calendars"\n'
+                '4. Enable calendar access\n\n'
+                '💡 Then try creating the event again!';
+          } else {
+            resultMessage = '❌ Failed to create calendar event. Please try again.';
           }
         }
       } else {

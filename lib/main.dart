@@ -10,6 +10,7 @@ import 'package:epansa_app/services/auth_service.dart';
 import 'package:epansa_app/services/voice_input_service.dart';
 import 'package:epansa_app/services/sync_service.dart';
 import 'package:epansa_app/services/alarm_service.dart';
+import 'package:epansa_app/services/calendar_event_service.dart';
 import 'package:epansa_app/presentation/screens/login_screen.dart';
 import 'package:epansa_app/presentation/screens/chat_screen.dart';
 import 'package:epansa_app/presentation/screens/alarm_ring_screen.dart';
@@ -91,13 +92,20 @@ class _EpansaAppState extends State<EpansaApp> {
         ChangeNotifierProvider(
           create: (_) => AlarmService()..initialize(),
         ),
+        ChangeNotifierProvider(
+          create: (_) => CalendarEventService()..initialize(),
+        ),
         ChangeNotifierProvider(create: (_) => SyncService()),
-        ChangeNotifierProxyProvider<AlarmService, ChatProvider>(
+        ChangeNotifierProxyProvider2<AlarmService, CalendarEventService, ChatProvider>(
           create: (context) => ChatProvider(
             alarmService: context.read<AlarmService>(),
+            calendarEventService: context.read<CalendarEventService>(),
           ),
-          update: (context, alarmService, previous) =>
-              previous ?? ChatProvider(alarmService: alarmService),
+          update: (context, alarmService, calendarEventService, previous) =>
+              previous ?? ChatProvider(
+                alarmService: alarmService,
+                calendarEventService: calendarEventService,
+              ),
         ),
       ],
       child: MaterialApp(
