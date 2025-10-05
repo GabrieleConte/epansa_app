@@ -1,11 +1,12 @@
 import 'package:flutter/foundation.dart';
-import 'package:manage_calendar_events/manage_calendar_events.dart';
+import 'package:device_calendar/device_calendar.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:timezone/timezone.dart' as tz;
 
-/// Service for managing calendar events using manage_calendar_events package
+/// Service for managing calendar events using device_calendar package
 /// This service provides calendar integration that works across iOS and Android
 class CalendarEventService extends ChangeNotifier {
-  final CalendarPlugin _calendarPlugin = CalendarPlugin();
+  final DeviceCalendarPlugin _calendarPlugin = DeviceCalendarPlugin();
   String? _defaultCalendarId;
   bool _isInitialized = false;
   bool _hasPermission = false;
@@ -21,16 +22,17 @@ class CalendarEventService extends ChangeNotifier {
     debugPrint('📅 Initializing calendar event service...');
 
     try {
-      // Just check status without requesting on initialization
-      final status = await Permission.calendarFullAccess.status;
-      _hasPermission = status.isGranted;
-      debugPrint('📊 Initial calendar permission status: $status');
+      // Check permissions using device_calendar
+      var permissionsGranted = await _calendarPlugin.hasPermissions();
+      _hasPermission = permissionsGranted.isSuccess && (permissionsGranted.data ?? false);
+      debugPrint('📊 Initial calendar permission status: $_hasPermission');
 
       // Try to get default calendar if we have permission
       if (_hasPermission) {
         try {
-          final calendars = await _calendarPlugin.getCalendars();
-          if (calendars != null && calendars.isNotEmpty) {
+          final calendarsResult = await _calendarPlugin.retrieveCalendars();
+          if (calendarsResult.isSuccess && calendarsResult.data != null) {
+            final calendars = calendarsResult.data!;
             // Find first writable calendar
             debugPrint('📅 Found ${calendars.length} calendars:');
             for (var i = 0; i < calendars.length; i++) {
@@ -75,16 +77,17 @@ class CalendarEventService extends ChangeNotifier {
       _isRequestingPermission = true;
       debugPrint('📱 Checking calendar permissions...');
 
-      final hasPermission = await _calendarPlugin.hasPermissions();
-      debugPrint('📊 manage_calendar_events hasPermissions: $hasPermission');
+      final hasPermissionResult = await _calendarPlugin.hasPermissions();
+      final hasPermission = hasPermissionResult.isSuccess && (hasPermissionResult.data ?? false);
+      debugPrint('📊 device_calendar hasPermissions: $hasPermission');
 
-      if (hasPermission != true) {
+      if (!hasPermission) {
         debugPrint('🔐 Requesting calendar permissions...');
-        await _calendarPlugin.requestPermissions();
+        final requestResult = await _calendarPlugin.requestPermissions();
         await Future.delayed(const Duration(milliseconds: 500));
         
-        final grantedAfterRequest = await _calendarPlugin.hasPermissions();
-        _hasPermission = grantedAfterRequest == true;
+        final grantedAfterRequest = requestResult.isSuccess && (requestResult.data ?? false);
+        _hasPermission = grantedAfterRequest;
         
         debugPrint('📊 Permission after request: $_hasPermission');
         
@@ -112,12 +115,9 @@ class CalendarEventService extends ChangeNotifier {
   /// Check if calendar permission is granted
   Future<bool> hasCalendarPermission() async {
     try {
-      final status = await Permission.calendarFullAccess.status;
-      final hasPermViaPlugin = await _calendarPlugin.hasPermissions();
-      _hasPermission = status.isGranted || (hasPermViaPlugin == true);
-      debugPrint('📊 Current calendar permission status:');
-      debugPrint('   - permission_handler: $status');
-      debugPrint('   - manage_calendar_events: $hasPermViaPlugin');
+      final hasPermResult = await _calendarPlugin.hasPermissions();
+      _hasPermission = hasPermResult.isSuccess && (hasPermResult.data ?? false);
+      debugPrint('📊 Current calendar permission status: $_hasPermission');
       return _hasPermission;
     } catch (e) {
       debugPrint('❌ Error checking calendar permission: $e');
@@ -157,12 +157,13 @@ class CalendarEventService extends ChangeNotifier {
       String? calendarId = _defaultCalendarId;
       if (calendarId == null) {
         debugPrint('📅 Getting available calendars...');
-        final calendars = await _calendarPlugin.getCalendars();
-        if (calendars == null || calendars.isEmpty) {
+        final calendarsResult = await _calendarPlugin.retrieveCalendars();
+        if (!calendarsResult.isSuccess || calendarsResult.data == null || calendarsResult.data!.isEmpty) {
           debugPrint('❌ No calendars available');
           return null;
         }
         
+        final calendars = calendarsResult.data!;
         // Log all calendars
         debugPrint('📅 Found ${calendars.length} calendars:');
         for (var i = 0; i < calendars.length; i++) {
@@ -193,33 +194,38 @@ class CalendarEventService extends ChangeNotifier {
       debugPrint('   Location: $location');
 
       try {
-        final CalendarEvent event = CalendarEvent(
+        // Convert DateTime to TZDateTime (use local timezone)
+        final tzLocation = tz.local;
+        final start = tz.TZDateTime.from(startTime, tzLocation);
+        final end = tz.TZDateTime.from(endTime, tzLocation);
+        
+        final event = Event(
+          calendarId,
           title: title,
           description: description,
-          startDate: startTime,
-          endDate: endTime,
+          start: start,
+          end: end,
           location: location,
         );
 
-        debugPrint('📅 CalendarEvent object created, calling plugin.createEvent...');
+        debugPrint('📅 Event object created, calling plugin.createOrUpdateEvent...');
         
-        final result = await _calendarPlugin.createEvent(
-          calendarId: calendarId!,
-          event: event,
-        );
+        final result = await _calendarPlugin.createOrUpdateEvent(event);
 
-        debugPrint('📅 Plugin.createEvent returned: $result');
+        debugPrint('📅 Plugin.createOrUpdateEvent returned: ${result?.isSuccess}');
 
-        if (result == null || result.isEmpty) {
-          debugPrint('❌ Failed to create calendar event - result was null or empty');
-          debugPrint('   Result value: $result');
+        if (result == null || !result.isSuccess || result.data == null || result.data!.isEmpty) {
+          debugPrint('❌ Failed to create calendar event');
+          if (result != null) {
+            debugPrint('   Errors: ${result.errors}');
+          }
           return null;
         }
 
         debugPrint('✅ Calendar event created successfully');
-        debugPrint('   Event ID: $result');
+        debugPrint('   Event ID: ${result.data}');
         notifyListeners();
-        return result;
+        return result.data;
       } catch (e, stackTrace) {
         debugPrint('❌ Exception while creating calendar event: $e');
         debugPrint('Stack trace: $stackTrace');
@@ -247,28 +253,26 @@ class CalendarEventService extends ChangeNotifier {
 
       String? calendarId = _defaultCalendarId;
       if (calendarId == null) {
-        final calendars = await _calendarPlugin.getCalendars();
-        if (calendars == null || calendars.isEmpty) {
+        final calendarsResult = await _calendarPlugin.retrieveCalendars();
+        if (!calendarsResult.isSuccess || calendarsResult.data == null || calendarsResult.data!.isEmpty) {
           debugPrint('❌ No calendars available');
           return false;
         }
-        calendarId = calendars.first.id;
+        calendarId = calendarsResult.data!.first.id;
       }
 
       debugPrint('📅 Deleting calendar event: $eventId');
 
-      final result = await _calendarPlugin.deleteEvent(
-        calendarId: calendarId!,
-        eventId: eventId,
-      );
+      final result = await _calendarPlugin.deleteEvent(calendarId, eventId);
 
-      if (result == true) {
+      if (result.isSuccess && (result.data ?? false)) {
         debugPrint('✅ Calendar event deleted successfully');
         notifyListeners();
         return true;
       }
 
       debugPrint('❌ Failed to delete calendar event');
+      debugPrint('   Errors: ${result.errors}');
       return false;
     } catch (e) {
       debugPrint('❌ Error deleting calendar event: $e');

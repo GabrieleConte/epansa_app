@@ -219,6 +219,27 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 elevation: 8,
                               ),
                             ),
+                      const SizedBox(height: 16),
+                      
+                      // Skip button for testing
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (context) => const SyncSetupScreen(),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          'Skip for now (Testing)',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 14,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                      
                       const SizedBox(height: 24),
 
                       // Privacy Notice

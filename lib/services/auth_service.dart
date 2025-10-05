@@ -2,23 +2,19 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:epansa_app/core/config/app_config.dart';
+import 'dart:io' show Platform;
 
 /// Authentication service for Google Sign-In
 class AuthService extends ChangeNotifier {
-  late final GoogleSignIn _googleSignIn;
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: [
+      'email',
+      'https://www.googleapis.com/auth/calendar',
+      'https://www.googleapis.com/auth/contacts.readonly',
+    ],
+  );
 
   AuthService() {
-    // Initialize GoogleSignIn with platform-specific config
-    _googleSignIn = GoogleSignIn(
-      // For iOS/Android: No clientId needed (uses native config from Info.plist)
-      // For Web: use clientId with web client ID
-      clientId: kIsWeb ? AppConfig.googleOAuthClientIdWeb : null,
-      scopes: [
-        'email',
-        'https://www.googleapis.com/auth/calendar',
-        'https://www.googleapis.com/auth/contacts.readonly',
-      ],
-    );
     _initSignIn();
   }
 
@@ -32,25 +28,19 @@ class AuthService extends ChangeNotifier {
   String? get userPhotoUrl => _currentUser?.photoUrl;
 
   Future<void> _initSignIn() async {
-    // Check if user was previously signed in
-    final prefs = await SharedPreferences.getInstance();
-    final wasSignedIn = prefs.getBool('was_signed_in') ?? false;
-
-    if (wasSignedIn) {
-      // Try silent sign in
-      try {
-        final account = await _googleSignIn.signInSilently();
-        if (account != null) {
-          _currentUser = account;
-          _isSignedIn = true;
-          notifyListeners();
-        }
-      } catch (e) {
-        debugPrint('Silent sign in failed: $e');
+    // Try silent sign-in on initialization (v6 API)
+    try {
+      final account = await _googleSignIn.signInSilently();
+      if (account != null) {
+        _currentUser = account;
+        _isSignedIn = true;
+        notifyListeners();
       }
+    } catch (e) {
+      debugPrint('Silent sign in failed: $e');
     }
 
-    // Listen for sign in changes
+    // Listen to sign-in state changes (v6 API)
     _googleSignIn.onCurrentUserChanged.listen((account) {
       _currentUser = account;
       _isSignedIn = account != null;
@@ -61,28 +51,29 @@ class AuthService extends ChangeNotifier {
   /// Sign in with Google
   Future<bool> signIn() async {
     try {
-      debugPrint('🔵 GoogleSignIn.signIn() called');
-      debugPrint('🔵 Platform: ${kIsWeb ? "Web" : "iOS/Android"}');
-      debugPrint('🔵 Client ID configured: ${kIsWeb ? AppConfig.googleOAuthClientIdWeb : AppConfig.googleOAuthClientIdIos}');
+      debugPrint('🔵 Attempting Google Sign-In...');
+      debugPrint('🔵 Platform: ${kIsWeb ? "Web" : (Platform.isIOS ? "iOS" : "Android")}');
       
+      // Use v6 signIn() method
       final account = await _googleSignIn.signIn();
       
-      debugPrint('🔵 Sign-in account result: ${account?.email ?? "null"}');
-      
-      if (account != null) {
-        _currentUser = account;
-        _isSignedIn = true;
-        
-        // Save sign in state
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('was_signed_in', true);
-        
-        debugPrint('✅ Sign-in successful: ${account.email}');
-        notifyListeners();
-        return true;
+      if (account == null) {
+        debugPrint('❌ Sign-in cancelled by user');
+        return false;
       }
-      debugPrint('⚠️ Sign-in returned null (user cancelled?)');
-      return false;
+      
+      debugPrint('✅ Sign-in successful: ${account.email}');
+      
+      _currentUser = account;
+      _isSignedIn = true;
+      
+      // Save sign in state
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('was_signed_in', true);
+      
+      debugPrint('✅ Sign-in successful: ${account.email}');
+      notifyListeners();
+      return true;
     } catch (error, stackTrace) {
       debugPrint('❌ Error signing in: $error');
       debugPrint('❌ Stack trace: $stackTrace');
@@ -107,16 +98,23 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  /// Get authentication token
-  Future<String?> getAuthToken() async {
-    if (_currentUser == null) return null;
-    
+  /// Get authentication tokens for API calls
+  Future<Map<String, String>> getAuthHeaders() async {
+    if (_currentUser == null) {
+      throw Exception('User not signed in');
+    }
+
     try {
+      // Get authentication object (v6 API)
       final auth = await _currentUser!.authentication;
-      return auth.accessToken;
+      
+      return {
+        'Authorization': 'Bearer ${auth.accessToken}',
+        'Content-Type': 'application/json',
+      };
     } catch (e) {
-      debugPrint('Error getting auth token: $e');
-      return null;
+      debugPrint('Error getting auth headers: $e');
+      rethrow;
     }
   }
 }

@@ -2,7 +2,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
-import 'package:contacts_service/contacts_service.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:call_log/call_log.dart';
 
@@ -137,7 +137,7 @@ class SyncService extends ChangeNotifier {
             networkType: NetworkType.connected, // Only sync when connected to internet
             requiresBatteryNotLow: true, // Don't sync if battery is low
           ),
-          existingWorkPolicy: ExistingWorkPolicy.replace,
+          existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
         );
         debugPrint('✅ Background task registered successfully');
       }
@@ -328,42 +328,27 @@ class SyncService extends ChangeNotifier {
     final List<Map<String, dynamic>> contactsList = [];
     
     try {
-      var status = await Permission.contacts.status;
-      debugPrint('📱 Contacts permission INITIAL status: $status');
-      debugPrint('   - isGranted: ${status.isGranted}');
-      debugPrint('   - isDenied: ${status.isDenied}');
-      debugPrint('   - isPermanentlyDenied: ${status.isPermanentlyDenied}');
-      debugPrint('   - isLimited: ${status.isLimited}');
-      debugPrint('   - isRestricted: ${status.isRestricted}');
-      
-      if (!status.isGranted) {
-        debugPrint('📱 Requesting contacts permission...');
-        status = await Permission.contacts.request();
-        debugPrint('📱 Contacts permission AFTER request: $status');
-        debugPrint('   - isGranted: ${status.isGranted}');
-        debugPrint('   - isDenied: ${status.isDenied}');
-        debugPrint('   - isPermanentlyDenied: ${status.isPermanentlyDenied}');
-      }
-      
-      if (status.isGranted) {
+      // flutter_contacts handles permissions internally
+      if (await FlutterContacts.requestPermission()) {
         debugPrint('✅ Contacts permission granted! Fetching contacts...');
-        final contacts = await ContactsService.getContacts();
+        final contacts = await FlutterContacts.getContacts(
+          withProperties: true,
+          withPhoto: false,
+        );
         debugPrint('📱 Found ${contacts.length} contacts');
         
         for (final contact in contacts) {
           contactsList.add({
-            'id': contact.identifier,
-            'name': contact.displayName ?? 'Unknown',
-            'phones': contact.phones?.map((p) => p.value).toList() ?? [],
-            'emails': contact.emails?.map((e) => e.value).toList() ?? [],
+            'id': contact.id,
+            'name': contact.displayName,
+            'phones': contact.phones.map((p) => p.number).toList(),
+            'emails': contact.emails.map((e) => e.address).toList(),
           });
         }
-      } else if (status.isPermanentlyDenied) {
-        debugPrint('⚠️ Contacts permission permanently denied');
-        debugPrint('💡 Opening Settings to enable Contacts permission...');
-        await openAppSettings();
       } else {
         debugPrint('⚠️ Contacts permission denied');
+        debugPrint('💡 Opening Settings to enable Contacts permission...');
+        await openAppSettings();
       }
     } catch (e, stackTrace) {
       debugPrint('❌ Error fetching contacts: $e');

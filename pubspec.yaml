@@ -36,7 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   
   # Google Sign-In
-  google_sign_in: ^6.2.1
+  google_sign_in: ^6.2.1  # Using v6 to avoid Credential Manager issues
   
   # HTTP client for API calls
   http: ^1.2.0
@@ -45,7 +45,7 @@ dependencies:
   speech_to_text: ^7.0.0
   
   # Permission handling
-  permission_handler: ^11.3.0
+  permission_handler: ^12.0.1
   
   # State management
   provider: ^6.1.1
@@ -54,22 +54,21 @@ dependencies:
   shared_preferences: ^2.2.2
   
   # Intl for date formatting
-  intl: ^0.19.0
+  intl: ^0.20.2
   
   # Environment variables
-  flutter_dotenv: ^5.1.0
+  flutter_dotenv: ^6.0.0
   
   # Background task execution
-  workmanager: ^0.5.2
+  workmanager: ^0.9.0+3
   
   # Device data access
-  contacts_service: ^0.6.3  # For reading contacts
-  call_log: ^4.0.0           # For reading call logs (Android only)
-  device_calendar: ^4.3.2    # For reading calendar events
-  android_alarm_manager_plus: ^4.0.3  # For alarm management (Android)
-  flutter_local_notifications: ^17.0.0  # For notifications and alarms (iOS/Android)
+  flutter_contacts: ^1.1.9  # For reading contacts (modern replacement for contacts_service)
+  call_log: ^6.0.1           # For reading call logs (Android only)
+  device_calendar: ^4.3.3    # For reading/writing calendar events
+  android_alarm_manager_plus: ^5.0.0  # For alarm management (Android)
+  flutter_local_notifications: ^18.0.1  # For notifications and alarms (iOS/Android)
   alarm: ^5.1.5
-  manage_calendar_events: ^2.0.3
   json_annotation: ^4.9.0
   url_launcher: ^6.3.2
 
@@ -82,7 +81,7 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
   build_runner: ^2.9.0
   json_serializable: ^6.11.1
 
