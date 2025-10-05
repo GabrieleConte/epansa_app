@@ -30,7 +30,7 @@ class ActionConfirmationDialog extends StatelessWidget {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: const Color(0xFF87CEEB).withOpacity(0.2),
+                color: const Color(0xFF87CEEB).withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
               child: Icon(

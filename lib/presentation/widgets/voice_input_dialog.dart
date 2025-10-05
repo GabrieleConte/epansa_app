@@ -129,11 +129,11 @@ class _VoiceInputDialogState extends State<VoiceInputDialog>
                         height: 100,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: const Color(0xFF87CEEB).withOpacity(0.2),
+                          color: const Color(0xFF87CEEB).withValues(alpha: 0.2),
                           boxShadow: voiceService.isListening
                               ? [
                                   BoxShadow(
-                                    color: const Color(0xFF87CEEB).withOpacity(0.3),
+                                    color: const Color(0xFF87CEEB).withValues(alpha: 0.3),
                                     blurRadius: 20,
                                     spreadRadius: 10,
                                   ),

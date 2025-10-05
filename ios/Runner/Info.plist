@@ -73,6 +73,7 @@
 	<array>
 		<string>com.example.epansaApp.sync</string>
 		<string>com.gdelataillade.fetch</string>
+		<string>be.tramckrijte.workmanager.background-sync</string>
 	</array>
 	<key>NSAlarmsUsageDescription</key>
 	<string>EPANSA needs access to set and manage your alarms through voice commands and automation.</string>

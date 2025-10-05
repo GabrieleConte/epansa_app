@@ -103,7 +103,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             colors: [
               const Color(0xFF87CEEB), // Sky blue
               const Color(0xFF4A90E2), // Deep blue
-              const Color(0xFF87CEEB).withOpacity(0.8),
+              const Color(0xFF87CEEB).withValues(alpha: 0.8),
             ],
           ),
         ),
@@ -128,7 +128,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
+                              color: Colors.black.withValues(alpha: 0.1),
                               blurRadius: 20,
                               offset: const Offset(0, 10),
                             ),
@@ -159,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         'Your AI-Powered Personal Assistant',
                         style: TextStyle(
                           fontSize: 16,
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                           letterSpacing: 0.5,
                         ),
                         textAlign: TextAlign.center,
@@ -224,7 +224,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         'By signing in, you agree to sync your calendar,\ncontacts, alarms, and call history with EPANSA',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.white.withOpacity(0.7),
+                          color: Colors.white.withValues(alpha: 0.7),
                         ),
                         textAlign: TextAlign.center,
                       ),

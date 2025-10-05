@@ -21,14 +21,15 @@ void main() async {
   // Initialize configuration from .env file
   await AppConfig.initialize();
   
-  // Initialize background task manager (not available on web)
+  // Initialize WorkManager for background sync (even when app is closed)
+  // This is the key to enabling sync while app is terminated
   if (!kIsWeb) {
     try {
       await Workmanager().initialize(
-        callbackDispatcher, // The top level function that handles background work
-        isInDebugMode: AppConfig.debugMode, // Enable logging in debug mode
+        callbackDispatcher, // Import from sync_service.dart - runs in background isolate
       );
-      debugPrint('✅ Workmanager initialized successfully');
+      debugPrint('✅ Workmanager initialized - background sync ready');
+      debugPrint('📱 App can now sync data even when completely closed');
     } catch (e) {
       debugPrint('❌ Failed to initialize Workmanager: $e');
     }
@@ -112,7 +113,6 @@ class _EpansaAppState extends State<EpansaApp> {
           primary: const Color(0xFF87CEEB),
           secondary: const Color(0xFF4A90E2),
           surface: Colors.white,
-          background: Colors.white,
           brightness: Brightness.light,
         ),
         scaffoldBackgroundColor: Colors.white,
@@ -202,7 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: const Color(0xFF87CEEB).withOpacity(0.2),
+                color: const Color(0xFF87CEEB).withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
               child: const Icon(

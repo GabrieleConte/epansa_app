@@ -165,20 +165,22 @@ class AlarmService extends ChangeNotifier {
         iOS: iosDetails,
       );
 
-      // Calculate scheduled time
+      // FOR TESTING: Schedule notification 10 seconds from now
       final now = DateTime.now();
-      var scheduledDate = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        time.hour,
-        time.minute,
-      );
-
-      // If time has passed today, schedule for tomorrow
-      if (scheduledDate.isBefore(now)) {
-        scheduledDate = scheduledDate.add(const Duration(days: 1));
-      }
+      final scheduledDate = now.add(const Duration(seconds: 10));
+      
+      // PRODUCTION CODE (commented out for testing):
+      // var scheduledDate = DateTime(
+      //   now.year,
+      //   now.month,
+      //   now.day,
+      //   time.hour,
+      //   time.minute,
+      // );
+      // // If time has passed today, schedule for tomorrow
+      // if (scheduledDate.isBefore(now)) {
+      //   scheduledDate = scheduledDate.add(const Duration(days: 1));
+      // }
 
       final tzScheduledDate = tz.TZDateTime.from(scheduledDate, tz.local);
 
@@ -195,6 +197,7 @@ class AlarmService extends ChangeNotifier {
       );
 
       debugPrint('✅ iOS notification alarm scheduled for ${scheduledDate.toString()}');
+      debugPrint('🧪 TEST MODE: Notification will fire in 10 seconds');
       return true;
     } catch (e) {
       debugPrint('❌ Failed to create iOS notification alarm: $e');

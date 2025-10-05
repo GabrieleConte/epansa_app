@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:epansa_app/core/config/app_config.dart';
 import 'dart:io' show Platform;
 
 /// Authentication service for Google Sign-In

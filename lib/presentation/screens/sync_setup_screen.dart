@@ -67,7 +67,7 @@ class _SyncSetupScreenState extends State<SyncSetupScreen> {
             colors: [
               const Color(0xFF87CEEB),
               const Color(0xFF4A90E2),
-              const Color(0xFF87CEEB).withOpacity(0.8),
+              const Color(0xFF87CEEB).withValues(alpha: 0.8),
             ],
           ),
         ),
@@ -87,7 +87,7 @@ class _SyncSetupScreenState extends State<SyncSetupScreen> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 20,
                         offset: const Offset(0, 10),
                       ),
@@ -118,7 +118,7 @@ class _SyncSetupScreenState extends State<SyncSetupScreen> {
                   'EPANSA can automatically sync your data in the background to keep your assistant up-to-date.',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     height: 1.5,
                   ),
                   textAlign: TextAlign.center,
@@ -170,7 +170,7 @@ class _SyncSetupScreenState extends State<SyncSetupScreen> {
                             child: Text(
                               'Skip for now',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
+                                color: Colors.white.withValues(alpha: 0.9),
                                 fontSize: 14,
                               ),
                             ),
@@ -184,7 +184,7 @@ class _SyncSetupScreenState extends State<SyncSetupScreen> {
                   'You can manually sync anytime using\nthe sync button in the chat screen',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -201,10 +201,10 @@ class _SyncSetupScreenState extends State<SyncSetupScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: Colors.white.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withOpacity(0.3),
+          color: Colors.white.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -228,7 +228,7 @@ class _SyncSetupScreenState extends State<SyncSetupScreen> {
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withValues(alpha: 0.8),
                     fontSize: 13,
                   ),
                 ),

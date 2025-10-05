@@ -5,25 +5,119 @@ import 'package:workmanager/workmanager.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:call_log/call_log.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 // Background task identifier
 const String syncTaskName = "epansa-background-sync";
 const String syncTaskTag = "sync-task";
 
+// Notification plugin (initialized in main.dart or here)
+final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+
+/// Initialize notifications for background sync indicator
+/// This runs in the background isolate
+Future<void> _initializeNotificationsForBackground() async {
+  if (kIsWeb) return;
+  
+  try {
+    const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: false, // Silent notifications
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+    
+    const InitializationSettings settings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+    
+    await _notificationsPlugin.initialize(settings);
+  } catch (e) {
+    debugPrint('⚠️ Failed to initialize notifications in background: $e');
+  }
+}
+
+/// Show silent notification during background sync
+/// This notification is silent (no sound/vibration) and can be hidden in notification shade
+Future<void> _showSilentSyncNotification({required bool isStarting}) async {
+  try {
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'background_sync_channel',
+      'Background Sync',
+      channelDescription: 'Silent background data synchronization',
+      importance: Importance.low, // Low importance = no sound/vibration
+      priority: Priority.low,
+      showWhen: false,
+      ongoing: true, // Makes it persistent while syncing
+      autoCancel: false,
+      silent: true, // Completely silent
+      visibility: NotificationVisibility.secret, // Hidden from lock screen
+    );
+    
+    const NotificationDetails details = NotificationDetails(android: androidDetails);
+    
+    if (isStarting) {
+      await _notificationsPlugin.show(
+        999, // Notification ID
+        'EPANSA',
+        'Syncing data in background...',
+        details,
+      );
+    } else {
+      // Update to show completion, then auto-dismiss after 2 seconds
+      await _notificationsPlugin.show(
+        999,
+        'EPANSA',
+        'Sync completed',
+        details,
+      );
+      await Future.delayed(const Duration(seconds: 2));
+      await _notificationsPlugin.cancel(999);
+    }
+  } catch (e) {
+    debugPrint('⚠️ Failed to show sync notification: $e');
+  }
+}
+
 /// Background callback dispatcher - runs independently of the app
 /// This function is called by the OS when it's time to sync
+/// 
+/// IMPORTANT: This runs in an isolate separate from the main app,
+/// so it can execute even when the app is completely closed
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     debugPrint('🔄 Background sync task triggered: $task');
+    debugPrint('📱 App state: CLOSED or BACKGROUND');
     
     try {
+      // Initialize notifications for silent sync indicator (optional)
+      await _initializeNotificationsForBackground();
+      
+      // Show silent notification (Android) - won't disturb user
+      if (!kIsWeb && Platform.isAndroid) {
+        await _showSilentSyncNotification(isStarting: true);
+      }
+      
       // Perform the background sync
       await _performBackgroundSyncTask();
+      
+      // Update notification to show completion
+      if (!kIsWeb && Platform.isAndroid) {
+        await _showSilentSyncNotification(isStarting: false);
+      }
+      
       debugPrint('✅ Background sync task completed successfully');
       return Future.value(true);
     } catch (e) {
       debugPrint('❌ Background sync task failed: $e');
+      
+      // Clear notification on error
+      if (!kIsWeb && Platform.isAndroid) {
+        await _notificationsPlugin.cancel(999);
+      }
+      
       return Future.value(false);
     }
   });
@@ -31,8 +125,11 @@ void callbackDispatcher() {
 
 /// Performs the actual sync work in the background
 /// This is separate from the service class so it can run independently
+/// 
+/// CRITICAL: This function runs in a background isolate on Android,
+/// meaning it executes even when the app is completely terminated
 Future<void> _performBackgroundSyncTask() async {
-  debugPrint('📱 Executing background sync...');
+  debugPrint('📱 Executing background sync (app may be closed)...');
   
   // Check if background sync is enabled
   final prefs = await SharedPreferences.getInstance();
@@ -44,6 +141,7 @@ Future<void> _performBackgroundSyncTask() async {
   }
   
   // Perform mock sync operations
+  debugPrint('🔄 Starting mock sync operations...');
   await _backgroundSyncContacts();
   // Calendar reading removed - handled by server reading Google Calendar
   await _backgroundSyncAlarms();
@@ -51,7 +149,7 @@ Future<void> _performBackgroundSyncTask() async {
   
   // Update last sync time
   await prefs.setInt('last_sync_time', DateTime.now().millisecondsSinceEpoch);
-  debugPrint('✅ Background sync completed');
+  debugPrint('✅ Background sync completed (app may still be closed)');
 }
 
 
@@ -78,6 +176,11 @@ Future<void> _backgroundSyncCallRegistry() async {
 }
 
 /// Service for syncing user data (contacts, calendar) with the agent server
+/// 
+/// BACKGROUND SYNC CAPABILITIES:
+/// - Android: Uses WorkManager for true background execution (runs even when app is closed)
+/// - iOS: Uses background fetch (limited by OS, typically runs when charging/WiFi)
+/// - Silent notifications: Optional visual indicator (can be completely hidden)
 class SyncService extends ChangeNotifier {
   bool _isBackgroundSyncEnabled = false;
   bool _isSyncing = false;
@@ -87,8 +190,50 @@ class SyncService extends ChangeNotifier {
   bool get isSyncing => _isSyncing;
   DateTime? get lastSyncTime => _lastSyncTime;
 
+  // Notification plugin for foreground notifications
+  final FlutterLocalNotificationsPlugin _foregroundNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
   SyncService() {
     _loadSyncPreferences();
+    _initializeForegroundNotifications();
+  }
+  
+  /// Initialize notifications for foreground sync (when app is open)
+  Future<void> _initializeForegroundNotifications() async {
+    if (kIsWeb) return;
+    
+    try {
+      const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      );
+      
+      const InitializationSettings settings = InitializationSettings(
+        android: androidSettings,
+        iOS: iosSettings,
+      );
+      
+      await _foregroundNotificationsPlugin.initialize(settings);
+      
+      // Create notification channel for Android
+      if (!kIsWeb && Platform.isAndroid) {
+        const AndroidNotificationChannel channel = AndroidNotificationChannel(
+          'background_sync_channel',
+          'Background Sync',
+          description: 'Silent background data synchronization',
+          importance: Importance.low,
+          showBadge: false,
+        );
+        
+        await _foregroundNotificationsPlugin
+            .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+            ?.createNotificationChannel(channel);
+      }
+    } catch (e) {
+      debugPrint('⚠️ Failed to initialize foreground notifications: $e');
+    }
   }
 
   /// Load sync preferences from storage
@@ -102,9 +247,35 @@ class SyncService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Enable background sync
+  /// Enable background sync with silent notifications
+  /// 
+  /// This enables true background sync that runs even when the app is closed:
+  /// - Android: WorkManager executes every 15-30 minutes (OS optimized)
+  /// - iOS: Background fetch when conditions are favorable (charging, WiFi)
+  /// - Silent notifications provide optional visual feedback
   Future<void> enableBackgroundSync() async {
-    debugPrint('📱 Enabling background sync...');
+    debugPrint('📱 Enabling background sync (works even when app is closed)...');
+    
+    // Request notification permission (for silent sync indicator)
+    if (!kIsWeb) {
+      try {
+        if (Platform.isAndroid) {
+          final androidImpl = _foregroundNotificationsPlugin
+              .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+          await androidImpl?.requestNotificationsPermission();
+        } else if (Platform.isIOS) {
+          final iosImpl = _foregroundNotificationsPlugin
+              .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+          await iosImpl?.requestPermissions(
+            alert: false, // No alerts
+            badge: false, // No badge
+            sound: false, // No sound
+          );
+        }
+      } catch (e) {
+        debugPrint('⚠️ Notification permission request failed: $e');
+      }
+    }
     
     // Save preference
     final prefs = await SharedPreferences.getInstance();
@@ -118,23 +289,42 @@ class SyncService extends ChangeNotifier {
       if (kIsWeb) {
         debugPrint('⚠️ Background sync not supported on web platform');
       } else if (Platform.isIOS) {
-        // iOS doesn't support periodic background tasks like Android
-        // iOS will only sync when app is opened or in foreground
-        debugPrint('⚠️ Background sync not supported on iOS');
-        debugPrint('💡 Data will sync automatically when you open the app');
-      } else {
-        // Android: Register periodic task (every 15 minutes minimum)
+        // iOS: Enable background fetch
+        // Note: iOS background fetch is opportunistic and controlled by the OS
+        // It typically runs when device is charging and on WiFi
+        debugPrint('⚠️ iOS background sync is limited by the OS');
+        debugPrint('💡 iOS will sync when charging/WiFi (controlled by system)');
+        debugPrint('💡 For testing: Settings > Developer > Background Fetch');
+        
+        // iOS still benefits from WorkManager for foreground periodic sync
         await Workmanager().registerPeriodicTask(
           syncTaskName,
           syncTaskTag,
           frequency: const Duration(minutes: 15),
           constraints: Constraints(
-            networkType: NetworkType.connected, // Only sync when connected to internet
-            requiresBatteryNotLow: true, // Don't sync if battery is low
+            networkType: NetworkType.connected,
           ),
           existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
         );
-        debugPrint('✅ Background task registered successfully');
+      } else {
+        // Android: Register periodic task with WorkManager
+        // This WILL run even when app is completely closed
+        await Workmanager().registerPeriodicTask(
+          syncTaskName,
+          syncTaskTag,
+          frequency: const Duration(minutes: 15), // Minimum 15 minutes
+          constraints: Constraints(
+            networkType: NetworkType.connected, // Only sync when connected to internet
+            requiresBatteryNotLow: true, // Don't sync if battery is low
+            requiresCharging: false, // Can sync while not charging
+            requiresDeviceIdle: false, // Can sync while device is in use
+          ),
+          existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
+          backoffPolicy: BackoffPolicy.exponential,
+          backoffPolicyDelay: const Duration(minutes: 1),
+        );
+        debugPrint('✅ Android WorkManager registered - will run even when app is closed');
+        debugPrint('📱 Sync will occur every 15-30 minutes (OS optimized)');
       }
     } catch (e) {
       debugPrint('❌ Failed to register background task: $e');
@@ -143,7 +333,7 @@ class SyncService extends ChangeNotifier {
     // Perform initial sync
     await performSync();
 
-    debugPrint('✅ Background sync enabled');
+    debugPrint('✅ Background sync enabled (app-closed sync active)');
   }
 
   /// Disable background sync
