@@ -1,43 +1,39 @@
-import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:alarm/alarm.dart';
+import 'package:flutter_alarm_clock/flutter_alarm_clock.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest_all.dart' as tz;
 
-/// Service for managing device alarms using the alarm package
-/// This package provides proper alarm functionality that works even when app is terminated
+/// Service for managing device alarms
+/// - Android: Uses flutter_alarm_clock to open system Clock app
+/// - iOS: Uses local notifications as alarms (iOS doesn't support programmatic alarms)
 class AlarmService extends ChangeNotifier {
-  List<AlarmSettings> _alarms = [];
   bool _isInitialized = false;
-  StreamSubscription<AlarmSettings>? _alarmSubscription;
+  FlutterLocalNotificationsPlugin? _notificationsPlugin;
+  int _notificationId = 0;
 
-  List<AlarmSettings> get alarms => _alarms;
   bool get isInitialized => _isInitialized;
 
   /// Initialize the alarm service
   Future<void> initialize() async {
     if (_isInitialized) return;
 
-    debugPrint('🔔 Initializing alarm service with alarm package...');
+    debugPrint('🔔 Initializing alarm service...');
 
     try {
-      // The alarm package is already initialized in main.dart with Alarm.init()
-      // Here we just set up the service
-      debugPrint('✅ Alarm package ready');
-
-      // Request permissions based on platform
+      // Initialize timezone data for scheduled notifications
+      tz.initializeTimeZones();
+      
       if (Platform.isAndroid) {
+        debugPrint('📱 Android: Using flutter_alarm_clock');
         await _checkAndroidPermissions();
       } else if (Platform.isIOS) {
-        await _checkIOSPermissions();
+        debugPrint('🍎 iOS: Using local notifications for alarms');
+        await _initializeNotifications();
       }
-
-      // Load existing alarms
-      await _loadAlarms();
-
-      // Listen to alarm ring events
-      _alarmSubscription = Alarm.ringStream.stream.listen(_onAlarmRing);
 
       _isInitialized = true;
       debugPrint('✅ Alarm service initialized successfully');
@@ -46,45 +42,41 @@ class AlarmService extends ChangeNotifier {
     }
   }
 
-  /// Check and request iOS permissions
-  Future<void> _checkIOSPermissions() async {
-    try {
-      debugPrint('📱 Checking iOS notification permissions...');
-      
-      // Check notification permission
-      final notificationStatus = await Permission.notification.status;
-      debugPrint('📊 iOS notification status: $notificationStatus');
-      
-      if (notificationStatus.isDenied || notificationStatus.isLimited) {
-        debugPrint('📱 Requesting iOS notification permission...');
-        final result = await Permission.notification.request();
-        debugPrint('📊 iOS notification permission result: $result');
-        
-        if (result.isPermanentlyDenied) {
-          debugPrint('⚠️ Notification permission permanently denied. User needs to enable in Settings.');
-          debugPrint('💡 Go to: Settings > EPANSA > Notifications');
-        }
-      } else if (notificationStatus.isGranted) {
-        debugPrint('✅ iOS notification permission already granted');
-      }
-    } catch (e) {
-      debugPrint('⚠️ Error checking iOS permissions: $e');
+  /// Initialize local notifications for iOS
+  Future<void> _initializeNotifications() async {
+    _notificationsPlugin = FlutterLocalNotificationsPlugin();
+
+    const initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initializationSettingsIOS = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+
+    const initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsIOS,
+    );
+
+    await _notificationsPlugin!.initialize(initializationSettings);
+    
+    // Request iOS notification permissions
+    if (Platform.isIOS) {
+      await _notificationsPlugin!
+          .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>()
+          ?.requestPermissions(alert: true, badge: true, sound: true);
     }
   }
+
+
 
   /// Check and request Android permissions
   Future<void> _checkAndroidPermissions() async {
     try {
-      // Check notification permission
-      final notificationStatus = await Permission.notification.status;
-      if (notificationStatus.isDenied) {
-        debugPrint('📱 Requesting notification permission...');
-        await Permission.notification.request();
-      }
-
       // Check schedule exact alarm permission (Android 12+)
       final scheduleAlarmStatus = await Permission.scheduleExactAlarm.status;
       debugPrint('📅 Schedule exact alarm permission: $scheduleAlarmStatus');
+      
       if (scheduleAlarmStatus.isDenied) {
         debugPrint('📱 Requesting schedule exact alarm permission...');
         await Permission.scheduleExactAlarm.request();
@@ -94,93 +86,39 @@ class AlarmService extends ChangeNotifier {
     }
   }
 
-  /// Load existing alarms
-  Future<void> _loadAlarms() async {
-    _alarms = await Alarm.getAlarms();
-    _alarms.sort((a, b) => a.dateTime.isBefore(b.dateTime) ? 0 : 1);
-    debugPrint('📋 Loaded ${_alarms.length} existing alarms');
-    notifyListeners();
-  }
-
-  /// Handle alarm ring event
-  void _onAlarmRing(AlarmSettings alarmSettings) async {
-    debugPrint('🔔 Alarm ringing: ${alarmSettings.notificationSettings.title}');
-    // You can add custom behavior here, like navigating to a screen
-    // For now, we just reload the alarms
-    await _loadAlarms();
-  }
-
   /// Create a new alarm
+  /// - Android: Creates alarm silently without opening Clock app (skipUi: true)
+  /// - iOS: Creates a local notification scheduled for the specified time
   /// Returns true if successful, false otherwise
   Future<bool> createAlarm({
     required String label,
     required TimeOfDay time,
     List<int> repeatDays = const [],
-    bool testMode = false, // For testing: set alarm in 10 seconds
+    bool skipUi = true, // Default to true to avoid opening Clock app
   }) async {
     try {
-      final now = DateTime.now();
-      DateTime alarmDateTime;
+      debugPrint('🔔 Creating alarm: $label at ${time.hour}:${time.minute}');
 
-      if (testMode) {
-        // TEST MODE: Set alarm for 10 seconds from now
-        alarmDateTime = now.add(const Duration(seconds: 10));
-        debugPrint('⚠️ TEST MODE: Alarm will fire in 10 seconds at $alarmDateTime');
-      } else {
-        // Calculate alarm time
-        alarmDateTime = DateTime(
-          now.year,
-          now.month,
-          now.day,
-          time.hour,
-          time.minute,
+      if (Platform.isAndroid) {
+        // Android: Use flutter_alarm_clock to open system Clock app
+        FlutterAlarmClock.createAlarm(
+          hour: time.hour,
+          minutes: time.minute,
+          title: label,
+          skipUi: skipUi,
         );
-
-        // If the alarm time has passed today, schedule for tomorrow
-        if (alarmDateTime.isBefore(now)) {
-          alarmDateTime = alarmDateTime.add(const Duration(days: 1));
-        }
+        debugPrint('✅ Android alarm created - Clock app will open');
+        return true;
+      } else if (Platform.isIOS) {
+        // iOS: Create scheduled notification
+        return await _createIOSNotificationAlarm(
+          label: label,
+          time: time,
+          repeatDays: repeatDays,
+        );
       }
 
-      // Generate unique ID
-      final id = alarmDateTime.millisecondsSinceEpoch % 2147483647; // Keep within 32-bit int range
-
-      // Create alarm settings with test mode enabled (fires in 10 seconds)
-      final alarmSettings = AlarmSettings(
-        id: id,
-        dateTime: alarmDateTime,
-        assetAudioPath: 'assets/alarm.mp3', // TODO: Add proper audio file
-        loopAudio: true,
-        vibrate: true,
-        volumeSettings: VolumeSettings.fade(
-          volume: 0.8,
-          fadeDuration: const Duration(seconds: 3),
-        ),
-        notificationSettings: NotificationSettings(
-          title: testMode ? '⏰ EPANSA Test Alarm' : '⏰ $label',
-          body: testMode 
-              ? '🔔 Tap notification or swipe to stop' 
-              : 'Alarm ringing - Tap to stop',
-          stopButton: Platform.isIOS ? 'Stop Alarm' : 'Stop',
-        ),
-        warningNotificationOnKill: Platform.isIOS,
-        androidFullScreenIntent: true, // Show full screen on Android
-      );
-
-      // Set the alarm
-      await Alarm.set(alarmSettings: alarmSettings);
-
-      // Reload alarms
-      await _loadAlarms();
-
-      debugPrint('✅ Alarm created: $label at ${alarmDateTime.toString()} (ID: $id)');
-      debugPrint('📱 Total alarms scheduled: ${_alarms.length}');
-      if (Platform.isIOS) {
-        debugPrint('⚠️ Note: iOS alarms are notifications, not native Clock alarms');
-        debugPrint('💡 The notification will fire at the scheduled time if permissions are granted');
-      }
-
-      return true;
+      return false;
     } catch (e, stackTrace) {
       debugPrint('❌ Failed to create alarm: $e');
       debugPrint('Stack trace: $stackTrace');
@@ -188,33 +126,140 @@ class AlarmService extends ChangeNotifier {
     }
   }
 
-  /// Stop an alarm
-  Future<bool> stopAlarm(int id) async {
+  /// Create an iOS notification alarm
+  Future<bool> _createIOSNotificationAlarm({
+    required String label,
+    required TimeOfDay time,
+    List<int> repeatDays = const [],
+  }) async {
     try {
-      await Alarm.stop(id);
-      await _loadAlarms();
-      debugPrint('✅ Alarm stopped: $id');
+      if (_notificationsPlugin == null) {
+        debugPrint('❌ Notifications not initialized');
+        return false;
+      }
+
+      // Generate unique notification ID
+      final notificationId = _notificationId++;
+
+      // Create notification details
+      const androidDetails = AndroidNotificationDetails(
+        'alarm_channel',
+        'Alarms',
+        channelDescription: 'Alarm notifications',
+        importance: Importance.max,
+        priority: Priority.high,
+        sound: RawResourceAndroidNotificationSound('alarm_sound'),
+        playSound: true,
+        enableVibration: true,
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+        sound: 'alarm_sound.aiff',
+      );
+
+      const notificationDetails = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      // Calculate scheduled time
+      final now = DateTime.now();
+      var scheduledDate = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        time.hour,
+        time.minute,
+      );
+
+      // If time has passed today, schedule for tomorrow
+      if (scheduledDate.isBefore(now)) {
+        scheduledDate = scheduledDate.add(const Duration(days: 1));
+      }
+
+      final tzScheduledDate = tz.TZDateTime.from(scheduledDate, tz.local);
+
+      // Schedule notification
+      await _notificationsPlugin!.zonedSchedule(
+        notificationId,
+        'Alarm',
+        label,
+        tzScheduledDate,
+        notificationDetails,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+
+      debugPrint('✅ iOS notification alarm scheduled for ${scheduledDate.toString()}');
       return true;
     } catch (e) {
-      debugPrint('❌ Failed to stop alarm: $e');
+      debugPrint('❌ Failed to create iOS notification alarm: $e');
       return false;
     }
   }
 
-  /// Stop all alarms
-  Future<void> stopAll() async {
+  /// Show all alarms in the system Clock app
+  /// Opens the native alarm list screen
+  Future<void> showAlarms() async {
     try {
-      await Alarm.stopAll();
-      await _loadAlarms();
-      debugPrint('✅ All alarms stopped');
+      if (!Platform.isAndroid) {
+        debugPrint('❌ Show alarms only supported on Android');
+        return;
+      }
+
+      debugPrint('📱 Opening system alarms...');
+      FlutterAlarmClock.showAlarms();
+      debugPrint('✅ System alarms screen opened');
     } catch (e) {
-      debugPrint('❌ Failed to stop all alarms: $e');
+      debugPrint('❌ Failed to show alarms: $e');
     }
   }
 
-  /// Check if any alarm is currently ringing
-  Future<bool> isRinging() async {
-    return Alarm.hasAlarm();
+  /// Create a timer (countdown)
+  /// Opens the system timer with specified duration
+  Future<void> createTimer({
+    required int seconds,
+    String? title,
+    bool skipUi = false,
+  }) async {
+    try {
+      if (!Platform.isAndroid) {
+        debugPrint('❌ Timer creation only supported on Android');
+        return;
+      }
+
+      debugPrint('⏱️ Creating timer: $seconds seconds');
+      
+      FlutterAlarmClock.createTimer(
+        length: seconds,
+        title: title ?? 'Timer',
+        skipUi: skipUi,
+      );
+
+      debugPrint('✅ Timer created successfully');
+    } catch (e) {
+      debugPrint('❌ Failed to create timer: $e');
+    }
+  }
+
+  /// Show all timers in the system Clock app
+  Future<void> showTimers() async {
+    try {
+      if (!Platform.isAndroid) {
+        debugPrint('❌ Show timers only supported on Android');
+        return;
+      }
+
+      debugPrint('📱 Opening system timers...');
+      FlutterAlarmClock.showTimers();
+      debugPrint('✅ System timers screen opened');
+    } catch (e) {
+      debugPrint('❌ Failed to show timers: $e');
+    }
   }
 
   /// Check if notification permissions are granted
@@ -223,24 +268,38 @@ class AlarmService extends ChangeNotifier {
     return status.isGranted;
   }
 
-  /// Get all alarms for syncing
-  Future<List<Map<String, dynamic>>> getAllAlarmsForSync() async {
-    return _alarms.map((a) => {
-      'id': a.id,
-      'label': a.notificationSettings.title,
-      'time': a.dateTime.toIso8601String(),
-    }).toList();
+  /// Check if schedule exact alarm permission is granted (Android 12+)
+  Future<bool> hasScheduleExactAlarmPermission() async {
+    if (!Platform.isAndroid) return false;
+    
+    try {
+      final status = await Permission.scheduleExactAlarm.status;
+      return status.isGranted;
+    } catch (e) {
+      debugPrint('⚠️ Error checking schedule exact alarm permission: $e');
+      return false;
+    }
   }
 
-  /// Fetch alarms from device (returns current managed alarms)
+  /// Get all alarms for syncing
+  /// Note: flutter_alarm_clock doesn't provide a way to read existing alarms
+  /// This method returns an empty list as we can't access system alarms
+  Future<List<Map<String, dynamic>>> getAllAlarmsForSync() async {
+    debugPrint('⚠️ flutter_alarm_clock cannot read existing system alarms');
+    debugPrint('💡 Only alarm creation is supported, not reading');
+    return [];
+  }
+
+  /// Fetch alarms from device
+  /// Note: Not possible with flutter_alarm_clock package
   Future<List<Map<String, dynamic>>> fetchDeviceAlarms() async {
-    debugPrint('📱 Fetching ${_alarms.length} alarms from alarm service');
-    return getAllAlarmsForSync();
+    debugPrint('⚠️ Cannot fetch device alarms with flutter_alarm_clock');
+    debugPrint('💡 This package only supports creating alarms, not reading them');
+    return [];
   }
 
   @override
   void dispose() {
-    _alarmSubscription?.cancel();
     super.dispose();
   }
 }

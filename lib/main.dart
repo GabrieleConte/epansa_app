@@ -1,9 +1,7 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:provider/provider.dart';
 import 'package:workmanager/workmanager.dart';
-import 'package:alarm/alarm.dart';
 import 'package:epansa_app/core/config/app_config.dart';
 import 'package:epansa_app/providers/chat_provider.dart';
 import 'package:epansa_app/services/auth_service.dart';
@@ -15,15 +13,10 @@ import 'package:epansa_app/services/sms_service.dart';
 import 'package:epansa_app/services/call_service.dart';
 import 'package:epansa_app/presentation/screens/login_screen.dart';
 import 'package:epansa_app/presentation/screens/chat_screen.dart';
-import 'package:epansa_app/presentation/screens/alarm_ring_screen.dart';
 
 void main() async {
   // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize the alarm package
-  await Alarm.init();
-  debugPrint('✅ Alarm package initialized');
   
   // Initialize configuration from .env file
   await AppConfig.initialize();
@@ -58,31 +51,17 @@ class EpansaApp extends StatefulWidget {
 
 class _EpansaAppState extends State<EpansaApp> {
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-  StreamSubscription<AlarmSettings>? _alarmSubscription;
 
   @override
   void initState() {
     super.initState();
-    // Listen to alarm ring events
-    _alarmSubscription = Alarm.ringStream.stream.listen(_onAlarmRing);
+    // Note: flutter_alarm_clock doesn't provide alarm ring events
+    // The system Clock app handles all alarm notifications
   }
 
   @override
   void dispose() {
-    _alarmSubscription?.cancel();
     super.dispose();
-  }
-
-  void _onAlarmRing(AlarmSettings alarmSettings) {
-    debugPrint('🔔 Alarm ringing: ${alarmSettings.notificationSettings.title}');
-    
-    // Navigate to alarm ring screen
-    navigatorKey.currentState?.push(
-      MaterialPageRoute(
-        builder: (context) => AlarmRingScreen(alarmSettings: alarmSettings),
-        fullscreenDialog: true,
-      ),
-    );
   }
 
   @override

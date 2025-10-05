@@ -66,9 +66,9 @@ dependencies:
   flutter_contacts: ^1.1.9  # For reading contacts (modern replacement for contacts_service)
   call_log: ^6.0.1           # For reading call logs (Android only)
   device_calendar: ^4.3.3    # For reading/writing calendar events
-  android_alarm_manager_plus: ^5.0.0  # For alarm management (Android)
-  flutter_local_notifications: ^18.0.1  # For notifications and alarms (iOS/Android)
-  alarm: ^5.1.5
+  flutter_alarm_clock: ^0.1.2  # For creating alarms in system clock app (Android)
+  flutter_local_notifications: ^18.0.1  # For iOS alarm notifications
+  timezone: ^0.9.4  # Required for scheduled notifications
   json_annotation: ^4.9.0
   url_launcher: ^6.3.2
 

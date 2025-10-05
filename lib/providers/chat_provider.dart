@@ -327,20 +327,17 @@ class ChatProvider extends ChangeNotifier {
               '💡 Then try setting the alarm again!';
           success = false;
         } else {
-          // Create alarm at 7:01 AM (test mode: fires in 10 seconds)
+          // Create alarm at 7:01 AM
           final alarmTime = const TimeOfDay(hour: 7, minute: 1);
           success = await _alarmService.createAlarm(
             label: 'EPANSA Alarm',
             time: alarmTime,
             repeatDays: [], // One-time alarm
-            testMode: true, // Test mode: alarm fires in 10 seconds
           );
           
           if (success) {
-            final alarmCount = _alarmService.alarms.length;
             resultMessage = '✅ Alarm set successfully! 🔔\n\n'
-                '⏰ TEST MODE: Will ring in 10 SECONDS\n\n'
-                'You now have $alarmCount alarm(s) scheduled.\n\n'
+                '⏰ Alarm set for 7:01 AM\n\n'
                 '📱 How to stop the alarm:\n'
                 '• On iOS: Tap the notification to open the stop screen\n'
                 '• On Android: Use the "Stop" button in the notification\n'
