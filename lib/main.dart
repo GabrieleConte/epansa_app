@@ -11,6 +11,8 @@ import 'package:epansa_app/services/voice_input_service.dart';
 import 'package:epansa_app/services/sync_service.dart';
 import 'package:epansa_app/services/alarm_service.dart';
 import 'package:epansa_app/services/calendar_event_service.dart';
+import 'package:epansa_app/services/sms_service.dart';
+import 'package:epansa_app/services/call_service.dart';
 import 'package:epansa_app/presentation/screens/login_screen.dart';
 import 'package:epansa_app/presentation/screens/chat_screen.dart';
 import 'package:epansa_app/presentation/screens/alarm_ring_screen.dart';
@@ -95,16 +97,26 @@ class _EpansaAppState extends State<EpansaApp> {
         ChangeNotifierProvider(
           create: (_) => CalendarEventService()..initialize(),
         ),
+        ChangeNotifierProvider(
+          create: (_) => SmsService()..initialize(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => CallService()..initialize(),
+        ),
         ChangeNotifierProvider(create: (_) => SyncService()),
-        ChangeNotifierProxyProvider2<AlarmService, CalendarEventService, ChatProvider>(
+        ChangeNotifierProxyProvider4<AlarmService, CalendarEventService, SmsService, CallService, ChatProvider>(
           create: (context) => ChatProvider(
             alarmService: context.read<AlarmService>(),
             calendarEventService: context.read<CalendarEventService>(),
+            smsService: context.read<SmsService>(),
+            callService: context.read<CallService>(),
           ),
-          update: (context, alarmService, calendarEventService, previous) =>
+          update: (context, alarmService, calendarEventService, smsService, callService, previous) =>
               previous ?? ChatProvider(
                 alarmService: alarmService,
                 calendarEventService: calendarEventService,
+                smsService: smsService,
+                callService: callService,
               ),
         ),
       ],

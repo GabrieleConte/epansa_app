@@ -144,3 +144,39 @@ class AlarmParameters {
 
   Map<String, dynamic> toJson() => _$AlarmParametersToJson(this);
 }
+
+/// SMS parameters for SMS actions
+@JsonSerializable()
+class SmsParameters {
+  final String phoneNumber;
+  final String message;
+  final String? contactName;
+
+  SmsParameters({
+    required this.phoneNumber,
+    required this.message,
+    this.contactName,
+  });
+
+  factory SmsParameters.fromJson(Map<String, dynamic> json) =>
+      _$SmsParametersFromJson(json);
+
+  Map<String, dynamic> toJson() => _$SmsParametersToJson(this);
+}
+
+/// Call parameters for phone call actions
+@JsonSerializable()
+class CallParameters {
+  final String phoneNumber;
+  final String? contactName;
+
+  CallParameters({
+    required this.phoneNumber,
+    this.contactName,
+  });
+
+  factory CallParameters.fromJson(Map<String, dynamic> json) =>
+      _$CallParametersFromJson(json);
+
+  Map<String, dynamic> toJson() => _$CallParametersToJson(this);
+}

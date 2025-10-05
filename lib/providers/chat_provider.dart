@@ -4,12 +4,16 @@ import 'package:epansa_app/data/models/chat_message.dart';
 import 'package:epansa_app/data/api/agent_api_client.dart';
 import 'package:epansa_app/services/alarm_service.dart';
 import 'package:epansa_app/services/calendar_event_service.dart';
+import 'package:epansa_app/services/sms_service.dart';
+import 'package:epansa_app/services/call_service.dart';
 
 /// Chat provider managing conversation state
 class ChatProvider extends ChangeNotifier {
   final AgentApiClient _apiClient;
   final AlarmService? _alarmService;
   final CalendarEventService? _calendarEventService;
+  final SmsService? _smsService;
+  final CallService? _callService;
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
   PendingAction? _pendingAction;
@@ -22,9 +26,13 @@ class ChatProvider extends ChangeNotifier {
     AgentApiClient? apiClient,
     AlarmService? alarmService,
     CalendarEventService? calendarEventService,
+    SmsService? smsService,
+    CallService? callService,
   })  : _apiClient = apiClient ?? AgentApiClient(useMockData: true),
         _alarmService = alarmService,
-        _calendarEventService = calendarEventService;
+        _calendarEventService = calendarEventService,
+        _smsService = smsService,
+        _callService = callService;
 
   /// Send a message and get response
   Future<void> sendMessage(String text) async {
@@ -44,6 +52,18 @@ class ChatProvider extends ChangeNotifier {
       if (text.toLowerCase().trim() == 'set_event') {
         _isLoading = false;
         _handleSetEventCommand();
+        return;
+      }
+      
+      if (text.toLowerCase().trim() == 'send_sms') {
+        _isLoading = false;
+        _handleSendSmsCommand();
+        return;
+      }
+      
+      if (text.toLowerCase().trim() == 'make_call') {
+        _isLoading = false;
+        _handleMakeCallCommand();
         return;
       }
 
@@ -97,6 +117,64 @@ class ChatProvider extends ChangeNotifier {
         'description': 'Meeting created by EPANSA assistant',
         'duration': 60, // minutes
         'location': 'Office',
+      },
+    );
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  /// Handle send_sms prototype command
+  void _handleSendSmsCommand() {
+    // Mock agent response for SMS sending
+    final agentMessage = ChatMessage.assistant(
+      'I can help you send an SMS! 📱\n\n'
+      'I\'d like to send:\n'
+      '• To: +1234567890\n'
+      '• Message: Hello from EPANSA! This is a test message.\n\n'
+      '⚠️ Note: SMS sending only works on Android devices.\n\n'
+      'Would you like me to send this message?',
+      type: MessageType.actionRequest,
+      actionId: DateTime.now().millisecondsSinceEpoch.toString(),
+    );
+    _messages.add(agentMessage);
+
+    // Create pending action for SMS
+    _pendingAction = PendingAction(
+      id: agentMessage.actionId!,
+      description: 'Send SMS to +1234567890',
+      type: ActionType.sendSms,
+      parameters: {
+        'phoneNumber': '+1234567890',
+        'message': 'Hello from EPANSA! This is a test message.',
+      },
+    );
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  /// Handle make_call prototype command
+  void _handleMakeCallCommand() {
+    // Mock agent response for making a call
+    final agentMessage = ChatMessage.assistant(
+      'I can help you make a phone call! 📞\n\n'
+      'I\'d like to call:\n'
+      '• Phone: +1234567890\n\n'
+      '💡 Note: Your device will open the phone dialer.\n\n'
+      'Would you like me to initiate this call?',
+      type: MessageType.actionRequest,
+      actionId: DateTime.now().millisecondsSinceEpoch.toString(),
+    );
+    _messages.add(agentMessage);
+
+    // Create pending action for phone call
+    _pendingAction = PendingAction(
+      id: agentMessage.actionId!,
+      description: 'Call +1234567890',
+      type: ActionType.makeCall,
+      parameters: {
+        'phoneNumber': '+1234567890',
       },
     );
 
@@ -248,6 +326,85 @@ class ChatProvider extends ChangeNotifier {
                 '💡 Then try creating the event again!';
           } else {
             resultMessage = '❌ Failed to create calendar event. Please try again.';
+          }
+        }
+      } else if (action.type == ActionType.sendSms && _smsService != null) {
+        debugPrint('🔵 ChatProvider: Sending SMS...');
+        
+        // Check if platform supports SMS
+        if (!_smsService.isSupported) {
+          resultMessage = '⚠️ SMS sending is only supported on Android devices.\n\n'
+              'iOS does not allow apps to send SMS programmatically for security reasons.';
+          success = false;
+        } else {
+          // Extract phone number and message from parameters
+          // For now, using mock data - will be replaced with actual parameters from agent
+          final phoneNumber = action.parameters['phoneNumber'] as String? ?? '+1234567890';
+          final message = action.parameters['message'] as String? ?? 'Test message from EPANSA';
+          
+          debugPrint('🔵 ChatProvider: Calling sendSms...');
+          success = await _smsService.sendSms(
+            phoneNumber: phoneNumber,
+            message: message,
+          );
+          debugPrint('🔵 ChatProvider: sendSms returned: $success');
+          
+          if (success) {
+            resultMessage = '✅ SMS sent successfully! 📱\n\n'
+                'To: $phoneNumber\n'
+                'Message: $message\n\n'
+                '💡 Check your messaging app to verify!';
+          } else {
+            // Check if permission was denied
+            final hasPermission = await _smsService.hasSmsPermission();
+            if (!hasPermission) {
+              resultMessage = '⚠️ SMS Permission Required\n\n'
+                  'To send SMS messages, please enable SMS access:\n\n'
+                  '1. Go to Android Settings\n'
+                  '2. Find "Epansa App"\n'
+                  '3. Tap "Permissions"\n'
+                  '4. Enable SMS permission\n\n'
+                  '💡 Then try sending the message again!';
+            } else {
+              resultMessage = '❌ Failed to send SMS. Please try again.';
+            }
+          }
+        }
+      } else if (action.type == ActionType.makeCall && _callService != null) {
+        debugPrint('🔵 ChatProvider: Making call...');
+        
+        // Check if platform supports calls
+        if (!_callService.isSupported) {
+          resultMessage = '⚠️ Phone calls are not supported on this platform.';
+          success = false;
+        } else {
+          // Extract phone number from parameters
+          final phoneNumber = action.parameters['phoneNumber'] as String? ?? '+1234567890';
+          
+          debugPrint('🔵 ChatProvider: Calling makeCall...');
+          success = await _callService.makeCall(
+            phoneNumber: phoneNumber,
+          );
+          debugPrint('🔵 ChatProvider: makeCall returned: $success');
+          
+          if (success) {
+            resultMessage = '✅ Phone call initiated! 📞\n\n'
+                'Calling: $phoneNumber\n\n'
+                '💡 Your phone dialer should open now.';
+          } else {
+            // Check if permission was denied (Android only)
+            final hasPermission = await _callService.hasPhonePermission();
+            if (!hasPermission) {
+              resultMessage = '⚠️ Phone Permission Required\n\n'
+                  'To make phone calls, please enable phone access:\n\n'
+                  '1. Go to Settings\n'
+                  '2. Find "Epansa App"\n'
+                  '3. Tap "Permissions"\n'
+                  '4. Enable Phone permission\n\n'
+                  '💡 Then try making the call again!';
+            } else {
+              resultMessage = '❌ Failed to initiate call. Please try again.';
+            }
           }
         }
       } else {

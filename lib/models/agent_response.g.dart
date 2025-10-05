@@ -99,3 +99,29 @@ Map<String, dynamic> _$AlarmParametersToJson(AlarmParameters instance) =>
       'repeatDays': instance.repeatDays,
       'vibrate': instance.vibrate,
     };
+
+SmsParameters _$SmsParametersFromJson(Map<String, dynamic> json) =>
+    SmsParameters(
+      phoneNumber: json['phoneNumber'] as String,
+      message: json['message'] as String,
+      contactName: json['contactName'] as String?,
+    );
+
+Map<String, dynamic> _$SmsParametersToJson(SmsParameters instance) =>
+    <String, dynamic>{
+      'phoneNumber': instance.phoneNumber,
+      'message': instance.message,
+      'contactName': instance.contactName,
+    };
+
+CallParameters _$CallParametersFromJson(Map<String, dynamic> json) =>
+    CallParameters(
+      phoneNumber: json['phoneNumber'] as String,
+      contactName: json['contactName'] as String?,
+    );
+
+Map<String, dynamic> _$CallParametersToJson(CallParameters instance) =>
+    <String, dynamic>{
+      'phoneNumber': instance.phoneNumber,
+      'contactName': instance.contactName,
+    };

@@ -71,6 +71,7 @@ dependencies:
   alarm: ^5.1.5
   manage_calendar_events: ^2.0.3
   json_annotation: ^4.9.0
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
