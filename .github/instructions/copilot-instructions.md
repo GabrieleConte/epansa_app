@@ -1,7 +1,7 @@
 # EPANSA App - AI Coding Assistant Instructions
 
 ## Project Overview
-EPANSA is a Flutter mobile app implementing an AI-powered personal assistant. The app acts as a **mobile client** that communicates with a **remote AI agent server** via API. The agent can interact with Google ecosystem tools (calendar, notes, search) and send commands back to the app for device-specific actions (SMS, calls, local files, alarms).
+EPANSA is a Flutter mobile app implementing an AI-powered personal assistant. The app acts as a **mobile client** that communicates with a **remote AI agent server** via API. The agent can interact with Google ecosystem tools (calendar, search) and send commands back to the app for device-specific actions (SMS, calls, local files, alarms).
 
 **Key Architecture**: Client-server model where the mobile app is the UI/execution layer and the remote agent is the intelligence layer.
 
@@ -17,7 +17,7 @@ Based on README.md, the app will need:
 1. **Authentication Layer**: Google OAuth integration to send tokens to remote agent
 2. **API Client**: HTTP communication with remote agent server (needs endpoint configuration)
 3. **Local Action Handlers**: Platform channels for SMS, calls, file access, alarms
-4. **Sync Service**: Background sync for contacts, tasks, notes, alarms to remote agent
+4. **Sync Service**: Background sync for contacts, tasks, alarms to remote agent
 5. **Chat UI**: Text/voice input with media display support
 6. **Confirmation UI**: User approval system for sensitive actions
 

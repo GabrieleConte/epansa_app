@@ -169,8 +169,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       // Features List
                       _buildFeatureItem(Icons.calendar_today, 'Manage your calendar'),
                       const SizedBox(height: 16),
-                      _buildFeatureItem(Icons.note_outlined, 'Organize your notes'),
-                      const SizedBox(height: 16),
                       _buildFeatureItem(Icons.contacts_outlined, 'Access your contacts'),
                       const SizedBox(height: 16),
                       _buildFeatureItem(Icons.alarm, 'Set and manage alarms'),
@@ -223,7 +221,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
                       // Privacy Notice
                       Text(
-                        'By signing in, you agree to sync your calendar,\ncontacts, notes, alarms, and call history with EPANSA',
+                        'By signing in, you agree to sync your calendar,\ncontacts, alarms, and call history with EPANSA',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.white.withOpacity(0.7),

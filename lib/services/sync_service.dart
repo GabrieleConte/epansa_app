@@ -44,7 +44,6 @@ Future<void> _performBackgroundSyncTask() async {
   }
   
   // Perform mock sync operations
-  await _backgroundSyncNotes();
   await _backgroundSyncContacts();
   // Calendar reading removed - handled by server reading Google Calendar
   await _backgroundSyncAlarms();
@@ -55,11 +54,7 @@ Future<void> _performBackgroundSyncTask() async {
   debugPrint('✅ Background sync completed');
 }
 
-Future<void> _backgroundSyncNotes() async {
-  debugPrint('📝 [Background] Syncing notes...');
-  await Future.delayed(const Duration(milliseconds: 500));
-  debugPrint('✅ [Background] Notes synced');
-}
+
 
 Future<void> _backgroundSyncContacts() async {
   debugPrint('👥 [Background] Syncing contacts...');
@@ -82,7 +77,7 @@ Future<void> _backgroundSyncCallRegistry() async {
   debugPrint('✅ [Background] Call registry synced');
 }
 
-/// Service for syncing user data (notes, contacts, calendar) with the agent server
+/// Service for syncing user data (contacts, calendar) with the agent server
 class SyncService extends ChangeNotifier {
   bool _isBackgroundSyncEnabled = false;
   bool _isSyncing = false;
@@ -188,7 +183,6 @@ class SyncService extends ChangeNotifier {
 
     try {
       // Mock sync operations (replace with real API calls)
-      await _syncNotes();
       await _syncContacts();
       // Calendar reading removed - server handles Google Calendar
       await _syncAlarms();
@@ -211,29 +205,7 @@ class SyncService extends ChangeNotifier {
     }
   }
 
-  /// Sync notes with server (mock implementation)
-  Future<void> _syncNotes() async {
-    debugPrint('📝 Syncing notes...');
-    
-    // Simulate API call
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    // In real implementation, call the agent server:
-    // final response = await http.post(
-    //   Uri.parse('${AppConfig.agentApiBaseUrl}/sync/notes'),
-    //   headers: {
-    //     'Authorization': 'Bearer ${AppConfig.agentApiKey}',
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: jsonEncode({
-    //     'notes': await _fetchLocalNotes(),
-    //   }),
-    // );
-
-    debugPrint('✅ Notes synced');
-  }
-
-  /// Sync contacts with server
+  /// Sync contacts with server  /// Sync contacts with server
   Future<void> _syncContacts() async {
     debugPrint('👥 Syncing contacts...');
     

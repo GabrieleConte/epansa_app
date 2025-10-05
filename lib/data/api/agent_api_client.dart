@@ -66,7 +66,6 @@ class AgentApiClient {
           "• Sending messages and making calls\n"
           "• Setting alarms and reminders\n"
           "• Searching the web\n"
-          "• Taking notes\n"
           "• And much more! Just ask me anything.";
     }
 

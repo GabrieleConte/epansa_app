@@ -126,8 +126,6 @@ class _SyncSetupScreenState extends State<SyncSetupScreen> {
                 const SizedBox(height: 40),
 
                 // What gets synced
-                _buildSyncItem(Icons.note_outlined, 'Notes', 'Keep your notes organized'),
-                const SizedBox(height: 16),
                 _buildSyncItem(Icons.contacts_outlined, 'Contacts', 'Access contact information'),
                 const SizedBox(height: 16),
                 _buildSyncItem(Icons.calendar_today, 'Calendar', 'Manage your events'),
