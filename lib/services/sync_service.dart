@@ -410,4 +410,34 @@ class SyncService extends ChangeNotifier {
     
     return callLogsList;
   }
+
+  /// Get top N contacts from device (for UI display)
+  Future<List<Map<String, dynamic>>> getTopContacts({int limit = 3}) async {
+    try {
+      if (await FlutterContacts.requestPermission()) {
+        final contacts = await FlutterContacts.getContacts(
+          withProperties: true,
+          withPhoto: false,
+        );
+        
+        // Return top N contacts
+        final topContacts = contacts.take(limit).map((contact) {
+          return {
+            'id': contact.id,
+            'name': contact.displayName,
+            'phones': contact.phones.map((p) => p.number).toList(),
+            'emails': contact.emails.map((e) => e.address).toList(),
+          };
+        }).toList();
+        
+        return topContacts;
+      } else {
+        debugPrint('⚠️ Contacts permission denied');
+        return [];
+      }
+    } catch (e) {
+      debugPrint('❌ Error getting top contacts: $e');
+      return [];
+    }
+  }
 }

@@ -6,6 +6,7 @@ import 'package:epansa_app/services/alarm_service.dart';
 import 'package:epansa_app/services/calendar_event_service.dart';
 import 'package:epansa_app/services/sms_service.dart';
 import 'package:epansa_app/services/call_service.dart';
+import 'package:epansa_app/services/sync_service.dart';
 
 /// Chat provider managing conversation state
 class ChatProvider extends ChangeNotifier {
@@ -14,6 +15,7 @@ class ChatProvider extends ChangeNotifier {
   final CalendarEventService? _calendarEventService;
   final SmsService? _smsService;
   final CallService? _callService;
+  final SyncService? _syncService;
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
   PendingAction? _pendingAction;
@@ -28,11 +30,13 @@ class ChatProvider extends ChangeNotifier {
     CalendarEventService? calendarEventService,
     SmsService? smsService,
     CallService? callService,
+    SyncService? syncService,
   })  : _apiClient = apiClient ?? AgentApiClient(useMockData: true),
         _alarmService = alarmService,
         _calendarEventService = calendarEventService,
         _smsService = smsService,
-        _callService = callService;
+        _callService = callService,
+        _syncService = syncService;
 
   /// Send a message and get response
   Future<void> sendMessage(String text) async {
@@ -64,6 +68,12 @@ class ChatProvider extends ChangeNotifier {
       if (text.toLowerCase().trim() == 'make_call') {
         _isLoading = false;
         _handleMakeCallCommand();
+        return;
+      }
+      
+      if (text.toLowerCase().contains('show contacts')) {
+        _isLoading = false;
+        await _handleShowContactsCommand();
         return;
       }
 
@@ -179,6 +189,61 @@ class ChatProvider extends ChangeNotifier {
     );
 
     _isLoading = false;
+    notifyListeners();
+  }
+
+  /// Handle show contacts prototype command
+  Future<void> _handleShowContactsCommand() async {
+    if (_syncService == null) {
+      final errorMessage = ChatMessage.assistant(
+        '❌ Sync service not available',
+        type: MessageType.error,
+      );
+      _messages.add(errorMessage);
+      notifyListeners();
+      return;
+    }
+    
+    try {
+      // Fetch top 10 contacts
+      final contacts = await _syncService.getTopContacts(limit: 3);
+      
+      if (contacts.isEmpty) {
+        final message = ChatMessage.assistant(
+          '📇 No contacts found.\n\n'
+          'Please make sure you have granted contacts permission and have contacts saved on your device.',
+          type: MessageType.text,
+        );
+        _messages.add(message);
+      } else {
+        // Build contacts list message
+        final buffer = StringBuffer();
+        buffer.writeln('📇 Your Top 10 Contacts:\n');
+        
+        for (int i = 0; i < contacts.length; i++) {
+          final contact = contacts[i];
+          final name = contact['name'] ?? 'Unknown';
+          final phones = contact['phones'] as List<dynamic>;
+          final phoneStr = phones.isNotEmpty ? phones[0] : 'No phone';
+          
+          buffer.writeln('${i + 1}. $name');
+          buffer.writeln('   📱 $phoneStr\n');
+        }
+        
+        final message = ChatMessage.assistant(
+          buffer.toString(),
+          type: MessageType.text,
+        );
+        _messages.add(message);
+      }
+    } catch (e) {
+      final errorMessage = ChatMessage.assistant(
+        '❌ Error fetching contacts: ${e.toString()}',
+        type: MessageType.error,
+      );
+      _messages.add(errorMessage);
+    }
+    
     notifyListeners();
   }
 

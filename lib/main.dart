@@ -104,19 +104,21 @@ class _EpansaAppState extends State<EpansaApp> {
           create: (_) => CallService()..initialize(),
         ),
         ChangeNotifierProvider(create: (_) => SyncService()),
-        ChangeNotifierProxyProvider4<AlarmService, CalendarEventService, SmsService, CallService, ChatProvider>(
+        ChangeNotifierProxyProvider5<AlarmService, CalendarEventService, SmsService, CallService, SyncService, ChatProvider>(
           create: (context) => ChatProvider(
             alarmService: context.read<AlarmService>(),
             calendarEventService: context.read<CalendarEventService>(),
             smsService: context.read<SmsService>(),
             callService: context.read<CallService>(),
+            syncService: context.read<SyncService>(),
           ),
-          update: (context, alarmService, calendarEventService, smsService, callService, previous) =>
+          update: (context, alarmService, calendarEventService, smsService, callService, syncService, previous) =>
               previous ?? ChatProvider(
                 alarmService: alarmService,
                 calendarEventService: calendarEventService,
                 smsService: smsService,
                 callService: callService,
+                syncService: syncService,
               ),
         ),
       ],
