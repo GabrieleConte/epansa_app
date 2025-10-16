@@ -5,21 +5,39 @@ EPANSA is a Flutter mobile app implementing an AI-powered personal assistant. Th
 
 **Key Architecture**: Client-server model where the mobile app is the UI/execution layer and the remote agent is the intelligence layer.
 
-## Project State: Early Development
-- Currently contains **default Flutter template** (`lib/main.dart` with counter demo)
-- No custom architecture, services, or UI components implemented yet
-- **pubspec.yaml** has minimal dependencies (only `cupertino_icons` + test packages)
-- This is a **greenfield project** - planned features are documented in README but not yet built
+## Project State: Active Development
+- ✅ **Authentication**: Google Sign-In implemented and working
+- ✅ **Chat UI**: Basic chat interface with message display
+- ✅ **Services Layer**: AlarmService, SMSService, CallService, CalendarEventService, SyncService
+- ✅ **Background Sync**: WorkManager (Android) + Background Fetch (iOS) - syncs even when app closed
+- ✅ **Platform Channels**: SMS sending (Android), native integrations ready
+- ✅ **Permissions**: Contacts, Calendar, SMS, Phone, Notifications all handled
+- ⚠️ **Using Mock Data**: Agent API responses are currently mocked (see Critical TODOs)
+- ⚠️ **Manual Alarm Input**: No UI for users to manually create/manage alarms yet
 
 ## Planned Architecture (Not Yet Implemented)
 Based on README.md, the app will need:
 
-1. **Authentication Layer**: Google OAuth integration to send tokens to remote agent
-2. **API Client**: HTTP communication with remote agent server (needs endpoint configuration)
-3. **Local Action Handlers**: Platform channels for SMS, calls, file access, alarms
-4. **Sync Service**: Background sync for contacts, tasks, alarms to remote agent
-5. **Chat UI**: Text/voice input with media display support
-6. **Confirmation UI**: User approval system for sensitive actions
+1. ~~**Authentication Layer**: Google OAuth integration to send tokens to remote agent~~ ✅ DONE
+2. **API Client**: HTTP communication with remote agent server (needs endpoint configuration) ⚠️ MOCKED
+3. ~~**Local Action Handlers**: Platform channels for SMS, calls, file access, alarms~~ ✅ DONE
+4. ~~**Sync Service**: Background sync for contacts, tasks, alarms to remote agent~~ ✅ DONE
+5. ~~**Chat UI**: Text/voice input with media display support~~ ✅ DONE (text only, voice TBD)
+6. ~~**Confirmation UI**: User approval system for sensitive actions~~ ✅ DONE
+
+## Current Architecture (Implemented)
+```
+lib/
+  core/           # Constants, themes (app_config.dart, app_theme.dart)
+  data/           
+    api/          # AgentApiClient (CURRENTLY MOCKED)
+    models/       # ChatMessage, PendingAction models
+  providers/      # ChatProvider (state management with ChangeNotifier)
+  screens/        # SignInScreen, SyncSetupScreen, ChatScreen
+  services/       # AlarmService, SMSService, CallService, CalendarEventService, SyncService
+  widgets/        # Reusable UI components
+  main.dart       # App entry point with routing
+```
 
 ## Development Guidelines
 
@@ -40,6 +58,13 @@ lib/
   presentation/   # UI screens, widgets, state
   services/       # Platform channels, background services
 ```
+
+### Known Limitations
+- **Reading System Alarms**: Android security prevents reading alarms from other apps (Clock app)
+  - Even with root access, modern Clock apps don't expose alarm data via ContentProviders
+  - AlarmManager system service is not queryable by third-party apps
+  - Current implementation only supports alarms created by this app
+  - Documented in `lib/services/alarm_service.dart` and `ALARM_READING_TEST_GUIDE.md`
 
 ### Build & Run
 - **Run app**: `flutter run` (targets connected device/emulator)
@@ -65,11 +90,45 @@ lib/
 - **Formatting**: `dart format .` to auto-format code
 
 ### Critical TODOs in Codebase
-1. Change Android `applicationId` from `com.example.epansa_app` to production domain
-2. Remove default counter demo code in `lib/main.dart`
-3. Add signing config for Android release builds (`android/app/build.gradle.kts`)
-4. Configure API endpoint and environment variables
-5. Add required permissions for SMS, calls, contacts, calendar access
+
+#### High Priority - Backend Integration
+1. **Connect Real Backend API**: 
+   - Replace mock implementation in `lib/data/api/agent_api_client.dart`
+   - Configure real backend endpoint in `lib/core/app_config.dart`
+   - Implement proper HTTP client (dio/http package)
+   - Send Google OAuth tokens to backend for authentication
+   - Handle real API responses and errors
+
+2. **Parse Backend Responses**:
+   - Define proper response models for agent actions
+   - Parse JSON responses into typed models
+   - Remove all mock data generation
+   - Implement proper error handling for network failures
+
+3. **Action Recognition System**:
+   - Implement backend response parsing to detect action requests
+   - Map backend action types to local services (SMS, calls, alarms, etc.)
+   - Remove hardcoded mock action responses in `ChatProvider`
+
+#### High Priority - UI Features
+4. **Alarm Management Screen**:
+   - Create UI for users to manually create/edit/delete alarms
+   - Add alarm list view showing all user-configured alarms
+   - Integrate with `AlarmService` to actually set device alarms
+   - Send user-created alarms to backend for agent awareness
+   - Add navigation from chat screen to alarm management
+
+#### Medium Priority - Infrastructure
+5. Change Android `applicationId` from `com.example.epansa_app` to production domain
+6. Add signing config for Android release builds (`android/app/build.gradle.kts`)
+7. Add environment-based configuration (dev/staging/prod)
+8. Implement proper logging system (instead of debugPrint)
+
+#### Low Priority - Polish
+9. Add voice input support in chat UI
+10. Improve error messages and user feedback
+11. Add loading states for all async operations
+12. Implement offline mode handling
 
 ### Security Considerations
 - **OAuth tokens**: Never log or hardcode, use secure storage
@@ -87,3 +146,5 @@ lib/
 - Consult README.md for feature requirements
 - Flutter documentation for mobile-specific patterns
 - No existing code patterns to follow yet - establish new conventions thoughtfully
+
+## Do NOT create summary documents

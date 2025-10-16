@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:epansa_app/core/config/app_config.dart';
 import 'package:epansa_app/providers/chat_provider.dart';
+import 'package:epansa_app/providers/alarm_provider.dart';
 import 'package:epansa_app/services/auth_service.dart';
 import 'package:epansa_app/services/voice_input_service.dart';
 import 'package:epansa_app/services/sync_service.dart';
@@ -84,6 +85,13 @@ class _EpansaAppState extends State<EpansaApp> {
           create: (_) => CallService()..initialize(),
         ),
         ChangeNotifierProvider(create: (_) => SyncService()),
+        ChangeNotifierProxyProvider<AlarmService, AlarmProvider>(
+          create: (context) => AlarmProvider(
+            alarmService: context.read<AlarmService>(),
+          ),
+          update: (context, alarmService, previous) =>
+              previous ?? AlarmProvider(alarmService: alarmService),
+        ),
         ChangeNotifierProxyProvider5<AlarmService, CalendarEventService, SmsService, CallService, SyncService, ChatProvider>(
           create: (context) => ChatProvider(
             alarmService: context.read<AlarmService>(),

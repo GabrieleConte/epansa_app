@@ -7,6 +7,7 @@ import 'package:epansa_app/presentation/widgets/message_bubble.dart';
 import 'package:epansa_app/presentation/widgets/voice_input_dialog.dart';
 import 'package:epansa_app/presentation/widgets/confirmation_dialog.dart';
 import 'package:epansa_app/presentation/screens/login_screen.dart';
+import 'package:epansa_app/screens/alarm_management_screen.dart';
 import 'dart:math' as math;
 
 /// Enhanced chat screen with fancy UI similar to Apple Intelligence/Gemini
@@ -267,6 +268,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           ],
         ),
         actions: [
+          // Alarm Management button
+          IconButton(
+            icon: const Icon(Icons.alarm_rounded),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AlarmManagementScreen(),
+                ),
+              );
+            },
+            tooltip: 'Manage alarms',
+          ),
           // Sync button
           Consumer<SyncService>(
             builder: (context, syncService, child) {
