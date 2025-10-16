@@ -3,6 +3,7 @@ import 'package:epansa_app/data/models/alarm.dart';
 import 'package:epansa_app/data/repositories/alarm_repository.dart';
 import 'package:epansa_app/services/alarm_service.dart';
 import 'package:epansa_app/data/api/agent_api_client.dart';
+import 'package:epansa_app/data/models/api/alarm_api_converter.dart';
 
 /// Provider for managing alarm state
 class AlarmProvider extends ChangeNotifier {
@@ -21,10 +22,10 @@ class AlarmProvider extends ChangeNotifier {
   AlarmProvider({
     AlarmRepository? repository,
     required AlarmService alarmService,
-    AgentApiClient? apiClient,
+    required AgentApiClient apiClient,
   })  : _repository = repository ?? AlarmRepository(),
         _alarmService = alarmService,
-        _apiClient = apiClient ?? AgentApiClient(useMockData: true);
+        _apiClient = apiClient;
 
   /// Load all alarms from storage
   Future<void> loadAlarms() async {
@@ -239,21 +240,34 @@ class AlarmProvider extends ChangeNotifier {
     }
   }
 
-  /// Notify backend about alarm changes (mock for now)
+  /// Notify backend about alarm changes
   Future<void> _notifyBackend(Alarm alarm, String action) async {
     try {
-      debugPrint('📡 Notifying backend: $action alarm ${alarm.formattedTime}');
+      debugPrint('📡 Syncing alarm to backend: $action ${alarm.formattedTime}');
       
-      // TODO: Replace with real API call
-      // await _apiClient.syncAlarms([alarm.toJson()]);
+      // Convert local alarm model to API format
+      final apiPayload = alarm.toApiPayload();
       
-      // Mock notification for now
-      await Future.delayed(const Duration(milliseconds: 100));
+      // Call appropriate API endpoint based on action
+      switch (action) {
+        case 'created':
+          await _apiClient.addAlarm(apiPayload);
+          break;
+        case 'updated':
+        case 'toggled':
+          await _apiClient.updateAlarm(apiPayload);
+          break;
+        case 'deleted':
+          await _apiClient.deleteAlarm(alarm.id);
+          break;
+        default:
+          debugPrint('⚠️ Unknown action: $action');
+      }
       
-      debugPrint('✅ Backend notified: $action alarm');
+      debugPrint('✅ Backend sync complete: $action alarm');
     } catch (e) {
-      debugPrint('⚠️ Failed to notify backend: $e');
-      // Don't throw - local alarm is still valid
+      debugPrint('⚠️ Failed to sync alarm to backend: $e');
+      // Don't throw - local alarm is still valid even if backend sync fails
     }
   }
 

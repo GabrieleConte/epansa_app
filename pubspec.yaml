@@ -40,6 +40,10 @@ dependencies:
   
   # HTTP client for API calls
   http: ^1.2.0
+  dio: ^5.4.0  # Better HTTP client with interceptors
+  
+  # Secure storage for JWT tokens
+  flutter_secure_storage: ^9.0.0
   
   # Speech recognition for voice input
   speech_to_text: ^7.0.0

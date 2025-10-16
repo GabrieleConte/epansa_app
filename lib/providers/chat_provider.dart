@@ -24,13 +24,13 @@ class ChatProvider extends ChangeNotifier {
   PendingAction? get pendingAction => _pendingAction;
 
   ChatProvider({
-    AgentApiClient? apiClient,
+    required AgentApiClient apiClient,
     AlarmService? alarmService,
     CalendarEventService? calendarEventService,
     SmsService? smsService,
     CallService? callService,
     SyncService? syncService,
-  })  : _apiClient = apiClient ?? AgentApiClient(useMockData: true),
+  })  : _apiClient = apiClient,
         _alarmService = alarmService,
         _calendarEventService = calendarEventService,
         _smsService = smsService,

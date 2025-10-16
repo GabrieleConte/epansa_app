@@ -12,6 +12,7 @@ import 'package:epansa_app/services/alarm_service.dart';
 import 'package:epansa_app/services/calendar_event_service.dart';
 import 'package:epansa_app/services/sms_service.dart';
 import 'package:epansa_app/services/call_service.dart';
+import 'package:epansa_app/data/api/agent_api_client.dart';
 import 'package:epansa_app/presentation/screens/login_screen.dart';
 import 'package:epansa_app/presentation/screens/chat_screen.dart';
 
@@ -85,23 +86,37 @@ class _EpansaAppState extends State<EpansaApp> {
           create: (_) => CallService()..initialize(),
         ),
         ChangeNotifierProvider(create: (_) => SyncService()),
-        ChangeNotifierProxyProvider<AlarmService, AlarmProvider>(
+        // Create AgentApiClient with AuthService dependency
+        ProxyProvider<AuthService, AgentApiClient>(
+          update: (context, authService, previous) =>
+              AgentApiClient(
+                authService: authService,
+                useMockData: false, // Use real backend
+              ),
+        ),
+        ChangeNotifierProxyProvider2<AlarmService, AgentApiClient, AlarmProvider>(
           create: (context) => AlarmProvider(
             alarmService: context.read<AlarmService>(),
+            apiClient: context.read<AgentApiClient>(),
           ),
-          update: (context, alarmService, previous) =>
-              previous ?? AlarmProvider(alarmService: alarmService),
+          update: (context, alarmService, apiClient, previous) =>
+              previous ?? AlarmProvider(
+                alarmService: alarmService,
+                apiClient: apiClient,
+              ),
         ),
-        ChangeNotifierProxyProvider5<AlarmService, CalendarEventService, SmsService, CallService, SyncService, ChatProvider>(
+        ChangeNotifierProxyProvider6<AgentApiClient, AlarmService, CalendarEventService, SmsService, CallService, SyncService, ChatProvider>(
           create: (context) => ChatProvider(
+            apiClient: context.read<AgentApiClient>(),
             alarmService: context.read<AlarmService>(),
             calendarEventService: context.read<CalendarEventService>(),
             smsService: context.read<SmsService>(),
             callService: context.read<CallService>(),
             syncService: context.read<SyncService>(),
           ),
-          update: (context, alarmService, calendarEventService, smsService, callService, syncService, previous) =>
+          update: (context, apiClient, alarmService, calendarEventService, smsService, callService, syncService, previous) =>
               previous ?? ChatProvider(
+                apiClient: apiClient,
                 alarmService: alarmService,
                 calendarEventService: calendarEventService,
                 smsService: smsService,

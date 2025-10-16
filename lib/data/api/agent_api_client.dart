@@ -1,20 +1,26 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import 'package:epansa_app/core/config/app_config.dart';
+import 'package:epansa_app/data/models/api/alarm_api_models.dart';
+import 'package:epansa_app/services/auth_service.dart';
 
-/// Mock Agent API Client
-/// This provides mock responses for testing without a real backend
+/// Agent API Client
+/// Handles communication with the EPANSA backend
 class AgentApiClient {
   final String baseUrl;
-  final String apiKey;
+  final AuthService authService;
+  final Dio _dio;
   final bool useMockData;
 
   AgentApiClient({
     String? baseUrl,
-    String? apiKey,
+    required this.authService,
     this.useMockData = true,
   })  : baseUrl = baseUrl ?? AppConfig.agentApiBaseUrl,
-        apiKey = apiKey ?? AppConfig.agentApiKey;
+        _dio = Dio(BaseOptions(
+          baseUrl: baseUrl ?? AppConfig.agentApiBaseUrl,
+          connectTimeout: const Duration(seconds: 10),
+          receiveTimeout: const Duration(seconds: 10),
+        ));
 
   /// Send a message to the agent and get a response
   Future<String> sendMessage(String message) async {
@@ -25,21 +31,18 @@ class AgentApiClient {
     }
 
     try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/chat'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $apiKey',
+      final headers = await authService.getAuthHeaders();
+      
+      final response = await _dio.post(
+        '/chat',
+        data: {
+          'text': message, // Backend expects 'text' field based on ChatPayload schema
         },
-        body: jsonEncode({
-          'message': message,
-          'timestamp': DateTime.now().toIso8601String(),
-        }),
+        options: Options(headers: headers),
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return data['response'] ?? 'No response received';
+        return response.data['response'] ?? 'No response received';
       } else {
         throw Exception('Failed to get response: ${response.statusCode}');
       }
@@ -145,15 +148,85 @@ class AgentApiClient {
     }
 
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/health'),
-        headers: {
-          'Authorization': 'Bearer $apiKey',
-        },
-      );
+      final response = await _dio.get('/healthz');
       return response.statusCode == 200;
     } catch (e) {
       return false;
+    }
+  }
+
+  // ========================================
+  // Alarm API Methods
+  // ========================================
+
+  /// Add a new alarm to the backend
+  Future<void> addAlarm(AlarmPayload alarmPayload) async {
+    try {
+      final headers = await authService.getAuthHeaders();
+      
+      final response = await _dio.post(
+        '/add_alarm',
+        data: alarmPayload.toJson(),
+        options: Options(headers: headers),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to add alarm: ${response.statusCode}');
+      }
+
+      print('✅ Alarm added to backend: ${alarmPayload.alarm}');
+    } catch (e) {
+      print('❌ Error adding alarm to backend: $e');
+      rethrow;
+    }
+  }
+
+  /// Update an existing alarm on the backend
+  Future<void> updateAlarm(AlarmPayload alarmPayload) async {
+    try {
+      final headers = await authService.getAuthHeaders();
+      
+      final response = await _dio.post(
+        '/update_alarm',
+        data: alarmPayload.toJson(),
+        options: Options(headers: headers),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to update alarm: ${response.statusCode}');
+      }
+
+      print('✅ Alarm updated on backend: ${alarmPayload.alarm}');
+    } catch (e) {
+      print('❌ Error updating alarm on backend: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete an alarm from the backend
+  Future<void> deleteAlarm(String alarmId) async {
+    try {
+      final headers = await authService.getAuthHeaders();
+      
+      final deletePayload = DeletePayload(
+        id: alarmId,
+        sourceApp: 'epansa_app',
+      );
+
+      final response = await _dio.post(
+        '/delete_alarm',
+        data: deletePayload.toJson(),
+        options: Options(headers: headers),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to delete alarm: ${response.statusCode}');
+      }
+
+      print('✅ Alarm deleted from backend: $alarmId');
+    } catch (e) {
+      print('❌ Error deleting alarm from backend: $e');
+      rethrow;
     }
   }
 }

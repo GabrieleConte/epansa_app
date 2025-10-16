@@ -33,8 +33,9 @@ class AppConfig {
   // ========================================
   
   /// Base URL of the remote AI agent server
+  /// Note: Use 10.0.2.2 for Android emulator to reach host machine's localhost
   static String get agentApiBaseUrl => 
-      dotenv.env['AGENT_API_BASE_URL'] ?? 'YOUR_AGENT_API_BASE_URL_HERE';
+      dotenv.env['AGENT_API_BASE_URL'] ?? 'http://10.0.2.2:5001';
 
   /// API Key for authenticating requests to the remote agent
   static String get agentApiKey => 
