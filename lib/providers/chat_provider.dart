@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:epansa_app/data/models/chat_message.dart';
 import 'package:epansa_app/data/api/agent_api_client.dart';

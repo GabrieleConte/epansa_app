@@ -75,9 +75,11 @@ class VoiceInputService extends ChangeNotifier {
         }
         notifyListeners();
       },
-      listenMode: stt.ListenMode.confirmation,
-      cancelOnError: true,
-      partialResults: true,
+      listenOptions: stt.SpeechListenOptions(
+        listenMode: stt.ListenMode.confirmation,
+        cancelOnError: true,
+        partialResults: true,
+      ),
     );
   }
 

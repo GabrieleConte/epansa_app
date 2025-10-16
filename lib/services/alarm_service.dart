@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_alarm_clock/flutter_alarm_clock.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -301,8 +300,4 @@ class AlarmService extends ChangeNotifier {
     return [];
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
 }
