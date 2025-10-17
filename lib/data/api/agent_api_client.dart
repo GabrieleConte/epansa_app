@@ -163,6 +163,8 @@ class AgentApiClient {
   Future<void> addAlarm(AlarmPayload alarmPayload) async {
     try {
       final headers = await authService.getAuthHeaders();
+      print('🔍 Adding alarm with headers: ${headers.keys}');
+      print('🔍 Authorization header present: ${headers.containsKey("Authorization")}');
       
       final response = await _dio.post(
         '/add_alarm',

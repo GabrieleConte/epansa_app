@@ -203,10 +203,25 @@ class AuthService extends ChangeNotifier {
 
   /// Get authentication headers for backend API calls
   Future<Map<String, String>> getAuthHeaders() async {
+    debugPrint('🔍 getAuthHeaders called - JWT token present: ${_jwtToken != null}');
+    
+    if (_jwtToken == null) {
+      debugPrint('❌ JWT token is null, checking secure storage...');
+      // Try to reload from storage
+      _jwtToken = await _secureStorage.read(key: 'jwt_token');
+      debugPrint('🔍 After reload - JWT token present: ${_jwtToken != null}');
+    }
+    
     if (_jwtToken == null) {
       throw Exception('User not authenticated with backend');
     }
 
+    // Debug: print first and last 10 chars of JWT for verification
+    final tokenPreview = _jwtToken!.length > 20 
+        ? '${_jwtToken!.substring(0, 10)}...${_jwtToken!.substring(_jwtToken!.length - 10)}'
+        : _jwtToken!;
+    debugPrint('✅ Returning auth headers with JWT: $tokenPreview');
+    
     return {
       'Authorization': 'Bearer $_jwtToken',
       'Content-Type': 'application/json',
