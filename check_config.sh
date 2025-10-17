@@ -61,33 +61,6 @@ echo "════════════════════════�
 echo "  Google OAuth Setup"
 echo "════════════════════════════════════════════════════════"
 
-# Check for Android Google Services
-if [ -f "android/app/google-services.json" ]; then
-    echo "✓ android/app/google-services.json exists"
-else
-    echo "✗ android/app/google-services.json NOT FOUND"
-    echo "  → Download from Firebase Console (optional)"
-fi
-
-# Check for iOS Google Services
-if [ -f "ios/Runner/GoogleService-Info.plist" ]; then
-    echo "✓ ios/Runner/GoogleService-Info.plist exists"
-else
-    echo "✗ ios/Runner/GoogleService-Info.plist NOT FOUND"
-    echo "  → Download from Firebase Console (optional)"
-fi
-
-echo ""
-echo "════════════════════════════════════════════════════════"
-echo "  Next Steps"
-echo "════════════════════════════════════════════════════════"
-echo ""
-echo "1. Create .env file: cp .env.example .env"
-echo "2. Get Google OAuth credentials:"
-echo "   → Visit: https://console.cloud.google.com/"
-echo "3. Set up remote agent server and get API credentials"
-echo "4. Fill in all values in .env file"
-echo "5. Review CONFIGURATION.md for detailed instructions"
-echo ""
-echo "Run this script again to verify your configuration!"
-echo ""
+# Note: Google OAuth is configured via .env file
+# No additional platform-specific files are required
+echo "✓ Google OAuth configured via environment variables"
