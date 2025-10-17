@@ -13,6 +13,7 @@ import 'package:epansa_app/services/calendar_event_service.dart';
 import 'package:epansa_app/services/sms_service.dart';
 import 'package:epansa_app/services/call_service.dart';
 import 'package:epansa_app/data/api/agent_api_client.dart';
+import 'package:epansa_app/data/repositories/alarm_repository.dart';
 import 'package:epansa_app/presentation/screens/login_screen.dart';
 import 'package:epansa_app/presentation/screens/chat_screen.dart';
 
@@ -86,21 +87,26 @@ class _EpansaAppState extends State<EpansaApp> {
           create: (_) => CallService()..initialize(),
         ),
         ChangeNotifierProvider(create: (_) => SyncService()),
-        // Create AgentApiClient with AuthService dependency
-        ProxyProvider<AuthService, AgentApiClient>(
-          update: (context, authService, previous) =>
+        // Create AlarmRepository as a singleton
+        Provider(create: (_) => AlarmRepository()),
+        // Create AgentApiClient with AuthService and AlarmRepository dependencies
+        ProxyProvider2<AuthService, AlarmRepository, AgentApiClient>(
+          update: (context, authService, alarmRepository, previous) =>
               AgentApiClient(
                 authService: authService,
+                alarmRepository: alarmRepository,
                 useMockData: false, // Use real backend
               ),
         ),
-        ChangeNotifierProxyProvider2<AlarmService, AgentApiClient, AlarmProvider>(
+        ChangeNotifierProxyProvider3<AlarmRepository, AlarmService, AgentApiClient, AlarmProvider>(
           create: (context) => AlarmProvider(
+            repository: context.read<AlarmRepository>(),
             alarmService: context.read<AlarmService>(),
             apiClient: context.read<AgentApiClient>(),
           ),
-          update: (context, alarmService, apiClient, previous) =>
+          update: (context, repository, alarmService, apiClient, previous) =>
               previous ?? AlarmProvider(
+                repository: repository,
                 alarmService: alarmService,
                 apiClient: apiClient,
               ),

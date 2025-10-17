@@ -115,21 +115,25 @@ class AlarmPayload {
 class DeletePayload {
   final String id;
   final String sourceApp;
+  final Map<String, dynamic> metadata;
 
   DeletePayload({
     required this.id,
     required this.sourceApp,
+    required this.metadata,
   });
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'source_app': sourceApp,
+        'metadata': metadata,
       };
 
   factory DeletePayload.fromJson(Map<String, dynamic> json) {
     return DeletePayload(
       id: json['id'] as String,
       sourceApp: json['source_app'] as String,
+      metadata: json['metadata'] as Map<String, dynamic>? ?? {},
     );
   }
 }

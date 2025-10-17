@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:epansa_app/core/config/app_config.dart';
 import 'package:epansa_app/data/models/api/alarm_api_models.dart';
+import 'package:epansa_app/data/repositories/alarm_repository.dart';
 import 'package:epansa_app/services/auth_service.dart';
 
 /// Agent API Client
@@ -8,18 +9,20 @@ import 'package:epansa_app/services/auth_service.dart';
 class AgentApiClient {
   final String baseUrl;
   final AuthService authService;
+  final AlarmRepository alarmRepository;
   final Dio _dio;
   final bool useMockData;
 
   AgentApiClient({
     String? baseUrl,
     required this.authService,
+    required this.alarmRepository,
     this.useMockData = true,
   })  : baseUrl = baseUrl ?? AppConfig.agentApiBaseUrl,
         _dio = Dio(BaseOptions(
           baseUrl: baseUrl ?? AppConfig.agentApiBaseUrl,
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 10),
+          connectTimeout: const Duration(seconds: 10000),
+          receiveTimeout: const Duration(seconds: 10000),
         ));
 
   /// Send a message to the agent and get a response
@@ -41,7 +44,7 @@ class AgentApiClient {
         options: Options(headers: headers),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         return response.data['response'] ?? 'No response received';
       } else {
         throw Exception('Failed to get response: ${response.statusCode}');
@@ -172,7 +175,7 @@ class AgentApiClient {
         options: Options(headers: headers),
       );
 
-      if (response.statusCode != 200) {
+      if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception('Failed to add alarm: ${response.statusCode}');
       }
 
@@ -194,7 +197,7 @@ class AgentApiClient {
         options: Options(headers: headers),
       );
 
-      if (response.statusCode != 200) {
+      if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception('Failed to update alarm: ${response.statusCode}');
       }
 
@@ -210,9 +213,18 @@ class AgentApiClient {
     try {
       final headers = await authService.getAuthHeaders();
       
+      // Fetch the alarm from repository to determine if it's recurrent
+      final alarm = await alarmRepository.getAlarm(alarmId);
+      final isRecurrent = alarm?.repeatDays.isNotEmpty ?? false;
+      final recurrenceType = isRecurrent ? 'recurrent' : 'single-occurrence';
+      
       final deletePayload = DeletePayload(
         id: alarmId,
         sourceApp: 'epansa_app',
+        metadata: {
+          'kind': 'alarm',
+          'recurrence_type': recurrenceType,
+        },
       );
 
       final response = await _dio.post(
@@ -221,11 +233,11 @@ class AgentApiClient {
         options: Options(headers: headers),
       );
 
-      if (response.statusCode != 200) {
+      if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception('Failed to delete alarm: ${response.statusCode}');
       }
 
-      print('✅ Alarm deleted from backend: $alarmId');
+      print('✅ Alarm deleted from backend: $alarmId (type: $recurrenceType)');
     } catch (e) {
       print('❌ Error deleting alarm from backend: $e');
       rethrow;
