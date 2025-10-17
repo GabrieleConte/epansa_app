@@ -7,6 +7,7 @@ import 'package:epansa_app/presentation/widgets/message_bubble.dart';
 import 'package:epansa_app/presentation/widgets/voice_input_dialog.dart';
 import 'package:epansa_app/presentation/widgets/confirmation_dialog.dart';
 import 'package:epansa_app/presentation/screens/login_screen.dart';
+import 'package:epansa_app/presentation/screens/notes_screen.dart';
 import 'package:epansa_app/screens/alarm_management_screen.dart';
 import 'dart:math' as math;
 
@@ -268,6 +269,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           ],
         ),
         actions: [
+          // Notes button
+          IconButton(
+            icon: const Icon(Icons.note_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotesScreen(),
+                ),
+              );
+            },
+            tooltip: 'Notes',
+          ),
           // Alarm Management button
           IconButton(
             icon: const Icon(Icons.alarm_rounded),

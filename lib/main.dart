@@ -5,9 +5,10 @@ import 'package:workmanager/workmanager.dart';
 import 'package:epansa_app/core/config/app_config.dart';
 import 'package:epansa_app/providers/chat_provider.dart';
 import 'package:epansa_app/providers/alarm_provider.dart';
+import 'package:epansa_app/providers/note_provider.dart';
 import 'package:epansa_app/services/auth_service.dart';
 import 'package:epansa_app/services/voice_input_service.dart';
-import 'package:epansa_app/services/sync_service.dart';
+import 'package:epansa_app/services/sync_service.dart' show SyncService, callbackDispatcher;
 import 'package:epansa_app/services/alarm_service.dart';
 import 'package:epansa_app/services/calendar_event_service.dart';
 import 'package:epansa_app/services/sms_service.dart';
@@ -16,6 +17,7 @@ import 'package:epansa_app/data/api/agent_api_client.dart';
 import 'package:epansa_app/data/repositories/alarm_repository.dart';
 import 'package:epansa_app/data/repositories/contact_repository.dart';
 import 'package:epansa_app/data/repositories/phone_call_repository.dart';
+import 'package:epansa_app/data/repositories/note_repository.dart';
 import 'package:epansa_app/presentation/screens/login_screen.dart';
 import 'package:epansa_app/presentation/screens/chat_screen.dart';
 
@@ -88,10 +90,11 @@ class _EpansaAppState extends State<EpansaApp> {
         ChangeNotifierProvider(
           create: (_) => CallService()..initialize(),
         ),
-        // Create AlarmRepository, ContactRepository, and PhoneCallRepository as singletons
+        // Create AlarmRepository, ContactRepository, PhoneCallRepository, and NoteRepository as singletons
         Provider(create: (_) => AlarmRepository()),
         Provider(create: (_) => ContactRepository()),
         Provider(create: (_) => PhoneCallRepository()),
+        Provider(create: (_) => NoteRepository()),
         // Create AgentApiClient with AuthService, AlarmRepository, ContactRepository, and PhoneCallRepository dependencies
         ProxyProvider4<AuthService, AlarmRepository, ContactRepository, PhoneCallRepository, AgentApiClient>(
           update: (context, authService, alarmRepository, contactRepository, phoneCallRepository, previous) =>
@@ -127,6 +130,17 @@ class _EpansaAppState extends State<EpansaApp> {
               previous ?? AlarmProvider(
                 repository: repository,
                 alarmService: alarmService,
+                apiClient: apiClient,
+              ),
+        ),
+        ChangeNotifierProxyProvider2<NoteRepository, AgentApiClient, NoteProvider>(
+          create: (context) => NoteProvider(
+            noteRepository: context.read<NoteRepository>(),
+            apiClient: context.read<AgentApiClient>(),
+          ),
+          update: (context, noteRepository, apiClient, previous) =>
+              previous ?? NoteProvider(
+                noteRepository: noteRepository,
                 apiClient: apiClient,
               ),
         ),

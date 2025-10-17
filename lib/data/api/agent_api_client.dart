@@ -4,6 +4,7 @@ import 'package:epansa_app/data/models/api/alarm_api_models.dart';
 import 'package:epansa_app/data/models/api/contact_api_models.dart';
 import 'package:epansa_app/data/models/api/phone_call_api_models.dart';
 import 'package:epansa_app/data/models/api/chat_api_models.dart';
+import 'package:epansa_app/data/models/api/note_api_models.dart';
 import 'package:epansa_app/data/repositories/alarm_repository.dart';
 import 'package:epansa_app/data/repositories/contact_repository.dart';
 import 'package:epansa_app/data/repositories/phone_call_repository.dart';
@@ -452,5 +453,84 @@ class AgentApiClient {
     }
 
     print('✅ Phone call sync completed: $successCount succeeded, $errorCount failed');
+  }
+
+  // ========================================
+  // Note API Methods
+  // ========================================
+
+  /// Add a new note to the backend
+  Future<void> addNote(NotePayload notePayload) async {
+    try {
+      final headers = await authService.getAuthHeaders();
+      print('🔍 Adding note with headers: ${headers.keys}');
+      
+      final response = await _dio.post(
+        '/add_note',
+        data: notePayload.toJson(),
+        options: Options(headers: headers),
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to add note: ${response.statusCode}');
+      }
+
+      print('✅ Note added to backend: ${notePayload.note}');
+    } catch (e) {
+      print('❌ Error adding note to backend: $e');
+      rethrow;
+    }
+  }
+
+  /// Update an existing note on the backend
+  Future<void> updateNote(NotePayload notePayload) async {
+    try {
+      final headers = await authService.getAuthHeaders();
+      
+      final response = await _dio.post(
+        '/update_note',
+        data: notePayload.toJson(),
+        options: Options(headers: headers),
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to update note: ${response.statusCode}');
+      }
+
+      print('✅ Note updated on backend: ${notePayload.note}');
+    } catch (e) {
+      print('❌ Error updating note on backend: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete a note from the backend
+  Future<void> deleteNote(String noteId) async {
+    try {
+      final headers = await authService.getAuthHeaders();
+      
+      final deletePayload = DeletePayload(
+        id: noteId,
+        sourceApp: 'epansa_app',
+        metadata: {
+          'kind': 'note',
+        },
+      );
+
+      final response = await _dio.post(
+        '/delete_note',
+        data: deletePayload.toJson(),
+        options: Options(headers: headers),
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to delete note: ${response.statusCode}');
+      }
+
+      print('✅ Note deleted from backend: $noteId');
+    } catch (e) {
+      print('❌ Error deleting note from backend: $e');
+      rethrow;
+    }
   }
 }
