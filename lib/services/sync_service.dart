@@ -6,6 +6,13 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:call_log/call_log.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:epansa_app/data/api/agent_api_client.dart';
+import 'package:epansa_app/data/repositories/contact_repository.dart';
+import 'package:epansa_app/data/repositories/phone_call_repository.dart';
+import 'package:epansa_app/data/models/contact.dart' as epansa;
+import 'package:epansa_app/data/models/phone_call.dart';
+import 'package:epansa_app/data/models/api/contact_api_converter.dart';
+import 'package:epansa_app/data/models/api/phone_call_api_converter.dart';
 
 // Background task identifier
 const String syncTaskName = "epansa-background-sync";
@@ -193,7 +200,18 @@ class SyncService extends ChangeNotifier {
   // Notification plugin for foreground notifications
   final FlutterLocalNotificationsPlugin _foregroundNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
-  SyncService() {
+  // Dependencies for syncing (optional, may not be available in background isolate)
+  AgentApiClient? _apiClient;
+  ContactRepository? _contactRepository;
+  PhoneCallRepository? _phoneCallRepository;
+
+  SyncService({
+    AgentApiClient? apiClient,
+    ContactRepository? contactRepository,
+    PhoneCallRepository? phoneCallRepository,
+  }) : _apiClient = apiClient,
+       _contactRepository = contactRepository,
+       _phoneCallRepository = phoneCallRepository {
     _loadSyncPreferences();
     _initializeForegroundNotifications();
   }
@@ -372,11 +390,11 @@ class SyncService extends ChangeNotifier {
     debugPrint('🔄 Starting data sync...');
 
     try {
-      // Mock sync operations (replace with real API calls)
-      await _syncContacts();
+      // Sync contacts and calls in alternating batches
+      await _syncContactsAndCallsInBatches();
+      
       // Calendar reading removed - server handles Google Calendar
       await _syncAlarms();
-      await _syncCallRegistry();
 
       // Update last sync time
       _lastSyncTime = DateTime.now();
@@ -395,25 +413,212 @@ class SyncService extends ChangeNotifier {
     }
   }
 
-  /// Sync contacts with server  /// Sync contacts with server
-  Future<void> _syncContacts() async {
-    debugPrint('👥 Syncing contacts...');
+  /// Sync contacts and phone calls in alternating batches
+  /// This method syncs 5 contacts, then 5 calls, alternating until all are synced
+  Future<void> _syncContactsAndCallsInBatches() async {
+    debugPrint('🔄 Starting alternating batch sync (5 contacts, then 5 calls, with 10s delay)...');
     
-    // Fetch real device contacts
-    final contactsData = await _fetchDeviceContacts();
-    debugPrint('📱 Fetched ${contactsData.length} contacts from device');
+    // Check if dependencies are available
+    if (_apiClient == null || _contactRepository == null || _phoneCallRepository == null) {
+      debugPrint('⚠️ Required repositories not available, skipping sync');
+      return;
+    }
     
-    // TODO: Send to remote agent server once API is ready
-    // final response = await http.post(
-    //   Uri.parse('${AppConfig.agentApiBaseUrl}/sync/contacts'),
-    //   headers: {
-    //     'Authorization': 'Bearer ${AppConfig.agentApiKey}',
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: jsonEncode({'contacts': contactsData}),
-    // );
-
-    debugPrint('✅ Contacts synced (${contactsData.length} contacts)');
+    try {
+      // Fetch and prepare contacts
+      final contactsData = await _fetchDeviceContacts();
+      debugPrint('📱 Fetched ${contactsData.length} contacts from device');
+      
+      final List<epansa.Contact> localContacts = [];
+      for (var contactData in contactsData) {
+        final phones = contactData['phones'] as List<dynamic>;
+        if (phones.isEmpty) continue;
+        
+        final phoneNumber = phones[0].toString();
+        final contactId = contactData['id'] as String;
+        final contactName = contactData['name'] as String;
+        
+        final existingContact = await _contactRepository!.getContact(contactId);
+        
+        if (existingContact != null) {
+          if (existingContact.name != contactName || existingContact.phoneNumber != phoneNumber) {
+            final updatedContact = existingContact.copyWith(
+              name: contactName,
+              phoneNumber: phoneNumber,
+              updatedAt: DateTime.now(),
+              isSyncedToBackend: false,
+            );
+            localContacts.add(updatedContact);
+          } else {
+            localContacts.add(existingContact);
+          }
+        } else {
+          final localContact = epansa.Contact.create(
+            id: contactId,
+            name: contactName,
+            phoneNumber: phoneNumber,
+          );
+          localContacts.add(localContact);
+        }
+      }
+      
+      await _contactRepository!.saveContacts(localContacts);
+      
+      // Fetch and prepare phone calls
+      final callLogsData = await _fetchCallLogs();
+      debugPrint('📱 Fetched ${callLogsData.length} call logs from device');
+      
+      final List<PhoneCall> localCalls = [];
+      for (var callData in callLogsData) {
+        final timestamp = callData['timestamp'] as int;
+        final duration = callData['duration'] as int;
+        final phoneNumber = callData['number'] as String;
+        final contactName = callData['name'] as String;
+        
+        final callId = '${timestamp}_${phoneNumber.replaceAll(RegExp(r'[^\d]'), '')}';
+        final callDate = DateTime.fromMillisecondsSinceEpoch(timestamp);
+        final startTime = callDate;
+        final endTime = startTime.add(Duration(seconds: duration));
+        
+        final callType = callData['type'] as String;
+        String callDirection;
+        switch (callType) {
+          case 'incoming':
+          case 'INCOMING':
+            callDirection = 'incoming';
+            break;
+          case 'outgoing':
+          case 'OUTGOING':
+            callDirection = 'outgoing';
+            break;
+          case 'missed':
+          case 'MISSED':
+            callDirection = 'missed';
+            break;
+          default:
+            callDirection = 'missed';
+        }
+        
+        final existingCall = await _phoneCallRepository!.getCall(callId);
+        
+        if (existingCall != null) {
+          localCalls.add(existingCall);
+        } else {
+          final localCall = PhoneCall.create(
+            id: callId,
+            date: callDate,
+            startTime: startTime,
+            endTime: endTime,
+            duration: duration,
+            callDirection: callDirection,
+            withContact: contactName != 'Unknown' ? contactName : null,
+            phoneNumber: phoneNumber,
+          );
+          localCalls.add(localCall);
+        }
+      }
+      
+      await _phoneCallRepository!.saveCalls(localCalls);
+      
+      // Get unsynced items
+      final unsyncedContacts = await _contactRepository!.getUnsyncedContacts();
+      final unsyncedCalls = await _phoneCallRepository!.getUnsyncedCalls();
+      
+      debugPrint('🔍 Found ${unsyncedContacts.length} unsynced contacts');
+      debugPrint('🔍 Found ${unsyncedCalls.length} unsynced calls');
+      
+      if (unsyncedContacts.isEmpty && unsyncedCalls.isEmpty) {
+        debugPrint('✅ All contacts and calls already synced to backend');
+        return;
+      }
+      
+      // Batch size: 5 items per batch
+      const batchSize = 5;
+      int contactIndex = 0;
+      int callIndex = 0;
+      int totalSynced = 0;
+      
+      // Alternate between contacts and calls
+      while (contactIndex < unsyncedContacts.length || callIndex < unsyncedCalls.length) {
+        // Sync batch of contacts
+        if (contactIndex < unsyncedContacts.length) {
+          final contactBatch = unsyncedContacts
+              .skip(contactIndex)
+              .take(batchSize)
+              .toList();
+          
+          debugPrint('📧 Syncing contacts batch: ${contactIndex + 1}-${contactIndex + contactBatch.length} of ${unsyncedContacts.length}');
+          
+          for (int i = 0; i < contactBatch.length; i++) {
+            final contact = contactBatch[i];
+            try {
+              final payload = ContactApiConverter.toApiPayload(contact);
+              await _apiClient!.addContact(payload);
+              await _contactRepository!.markAsSynced(contact.id);
+              totalSynced++;
+              debugPrint('✅ Synced contact ${contactIndex + i + 1}/${unsyncedContacts.length}: ${contact.name}');
+              
+              // Add 10 second delay between calls
+              if (i < contactBatch.length - 1 || callIndex < unsyncedCalls.length) {
+                debugPrint('⏳ Waiting 10 seconds...');
+                await Future.delayed(const Duration(seconds: 10));
+              }
+            } catch (e) {
+              debugPrint('⚠️ Failed to sync contact ${contact.name}: $e');
+              await Future.delayed(const Duration(seconds: 10));
+            }
+          }
+          
+          contactIndex += contactBatch.length;
+        }
+        
+        // Sync batch of calls
+        if (callIndex < unsyncedCalls.length) {
+          final callBatch = unsyncedCalls
+              .skip(callIndex)
+              .take(batchSize)
+              .toList();
+          
+          debugPrint('📞 Syncing calls batch: ${callIndex + 1}-${callIndex + callBatch.length} of ${unsyncedCalls.length}');
+          
+          for (int i = 0; i < callBatch.length; i++) {
+            final call = callBatch[i];
+            try {
+              final payload = PhoneCallApiConverter.toApiPayload(call);
+              await _apiClient!.addPhoneCall(payload);
+              await _phoneCallRepository!.markAsSynced(call.id);
+              totalSynced++;
+              debugPrint('✅ Synced call ${callIndex + i + 1}/${unsyncedCalls.length}: ${call.callDirection} (${call.withContact ?? "Unknown"})');
+              
+              // Add 10 second delay between calls
+              if (i < callBatch.length - 1 || contactIndex < unsyncedContacts.length) {
+                debugPrint('⏳ Waiting 10 seconds...');
+                await Future.delayed(const Duration(seconds: 10));
+              }
+            } catch (e) {
+              debugPrint('⚠️ Failed to sync call ${call.id}: $e');
+              await Future.delayed(const Duration(seconds: 10));
+            }
+          }
+          
+          callIndex += callBatch.length;
+        }
+      }
+      
+      debugPrint('✅ Batch sync completed: $totalSynced items synced in total');
+      
+      // Update last sync times
+      if (contactIndex > 0) {
+        await _contactRepository!.updateLastSyncTime(DateTime.now());
+      }
+      if (callIndex > 0) {
+        await _phoneCallRepository!.updateLastSyncTime(DateTime.now());
+      }
+      
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error in batch sync: $e');
+      debugPrint('Stack trace: $stackTrace');
+    }
   }
 
   // Calendar reading removed - server handles Google Calendar via API
@@ -439,27 +644,6 @@ class SyncService extends ChangeNotifier {
     // );
 
     debugPrint('✅ Alarms synced');
-  }
-
-  /// Sync call registry with server
-  Future<void> _syncCallRegistry() async {
-    debugPrint('📞 Syncing call registry...');
-    
-    // Fetch real call logs (Android only)
-    final callLogsData = await _fetchCallLogs();
-    debugPrint('📱 Fetched ${callLogsData.length} call logs from device');
-
-    // TODO: Send to remote agent server once API is ready
-    // final response = await http.post(
-    //   Uri.parse('${AppConfig.agentApiBaseUrl}/sync/calls'),
-    //   headers: {
-    //     'Authorization': 'Bearer ${AppConfig.agentApiKey}',
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: jsonEncode({'call_logs': callLogsData}),
-    // );
-
-    debugPrint('✅ Call registry synced (${callLogsData.length} calls)');
   }
 
   /// Get sync status message

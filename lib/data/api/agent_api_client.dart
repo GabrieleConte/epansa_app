@@ -1,7 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:epansa_app/core/config/app_config.dart';
 import 'package:epansa_app/data/models/api/alarm_api_models.dart';
+import 'package:epansa_app/data/models/api/contact_api_models.dart';
+import 'package:epansa_app/data/models/api/phone_call_api_models.dart';
 import 'package:epansa_app/data/repositories/alarm_repository.dart';
+import 'package:epansa_app/data/repositories/contact_repository.dart';
+import 'package:epansa_app/data/repositories/phone_call_repository.dart';
 import 'package:epansa_app/services/auth_service.dart';
 
 /// Agent API Client
@@ -10,6 +14,8 @@ class AgentApiClient {
   final String baseUrl;
   final AuthService authService;
   final AlarmRepository alarmRepository;
+  final ContactRepository contactRepository;
+  final PhoneCallRepository phoneCallRepository;
   final Dio _dio;
   final bool useMockData;
 
@@ -17,6 +23,8 @@ class AgentApiClient {
     String? baseUrl,
     required this.authService,
     required this.alarmRepository,
+    required this.contactRepository,
+    required this.phoneCallRepository,
     this.useMockData = true,
   })  : baseUrl = baseUrl ?? AppConfig.agentApiBaseUrl,
         _dio = Dio(BaseOptions(
@@ -244,5 +252,193 @@ class AgentApiClient {
       print('❌ Error deleting alarm from backend: $e');
       rethrow;
     }
+  }
+
+  // ========================================
+  // Contact API Methods
+  // ========================================
+
+  /// Add a new contact to the backend
+  Future<void> addContact(ContactPayload contactPayload) async {
+    try {
+      final headers = await authService.getAuthHeaders();
+      print('🔍 Adding contact with headers: ${headers.keys}');
+      
+      final response = await _dio.post(
+        '/add_contact',
+        data: contactPayload.toJson(),
+        options: Options(headers: headers),
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to add contact: ${response.statusCode}');
+      }
+
+      print('✅ Contact added to backend: ${contactPayload.contact} (${contactPayload.metadata.name})');
+    } catch (e) {
+      print('❌ Error adding contact to backend: $e');
+      rethrow;
+    }
+  }
+
+  /// Update an existing contact on the backend
+  Future<void> updateContact(ContactPayload contactPayload) async {
+    try {
+      final headers = await authService.getAuthHeaders();
+      
+      final response = await _dio.post(
+        '/update_contact',
+        data: contactPayload.toJson(),
+        options: Options(headers: headers),
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to update contact: ${response.statusCode}');
+      }
+
+      print('✅ Contact updated on backend: ${contactPayload.contact} (${contactPayload.metadata.name})');
+    } catch (e) {
+      print('❌ Error updating contact on backend: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete a contact from the backend
+  Future<void> deleteContact(String contactId) async {
+    try {
+      final headers = await authService.getAuthHeaders();
+      
+      final deletePayload = DeletePayload(
+        id: contactId,
+        sourceApp: 'epansa_app',
+        metadata: {
+          'kind': 'contact',
+        },
+      );
+
+      final response = await _dio.post(
+        '/delete_contact',
+        data: deletePayload.toJson(),
+        options: Options(headers: headers),
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to delete contact: ${response.statusCode}');
+      }
+
+      print('✅ Contact deleted from backend: $contactId');
+    } catch (e) {
+      print('❌ Error deleting contact from backend: $e');
+      rethrow;
+    }
+  }
+
+  /// Sync all contacts to backend (bulk operation)
+  /// This is used for initial sync and periodic background sync
+  Future<void> syncContactsToBackend(List<ContactPayload> contacts) async {
+    if (contacts.isEmpty) {
+      print('ℹ️ No contacts to sync');
+      return;
+    }
+
+    print('🔄 Syncing ${contacts.length} contacts to backend...');
+    int successCount = 0;
+    int errorCount = 0;
+
+    for (var contact in contacts) {
+      try {
+        await addContact(contact);
+        successCount++;
+      } catch (e) {
+        errorCount++;
+        print('⚠️ Failed to sync contact ${contact.metadata.name}: $e');
+        // Continue with next contact instead of stopping entire sync
+      }
+    }
+
+    print('✅ Contact sync completed: $successCount succeeded, $errorCount failed');
+  }
+
+  // ========================================
+  // Phone Call API Methods
+  // ========================================
+
+  /// Add a new phone call to the backend
+  Future<void> addPhoneCall(PhoneCallPayload phoneCallPayload) async {
+    try {
+      final headers = await authService.getAuthHeaders();
+      print('🔍 Adding phone call with headers: ${headers.keys}');
+      
+      final response = await _dio.post(
+        '/add_telephone',
+        data: phoneCallPayload.toJson(),
+        options: Options(headers: headers),
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to add phone call: ${response.statusCode}');
+      }
+
+      print('✅ Phone call added to backend: ${phoneCallPayload.call} (${phoneCallPayload.metadata.callDirection})');
+    } catch (e) {
+      print('❌ Error adding phone call to backend: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete a phone call from the backend
+  Future<void> deletePhoneCall(String callId) async {
+    try {
+      final headers = await authService.getAuthHeaders();
+      
+      final deletePayload = DeletePayload(
+        id: callId,
+        sourceApp: 'epansa_app',
+        metadata: {
+          'kind': 'call',
+        },
+      );
+
+      final response = await _dio.post(
+        '/delete_telephone',
+        data: deletePayload.toJson(),
+        options: Options(headers: headers),
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to delete phone call: ${response.statusCode}');
+      }
+
+      print('✅ Phone call deleted from backend: $callId');
+    } catch (e) {
+      print('❌ Error deleting phone call from backend: $e');
+      rethrow;
+    }
+  }
+
+  /// Sync all phone calls to backend (bulk operation)
+  /// This is used for initial sync and periodic background sync
+  Future<void> syncPhoneCallsToBackend(List<PhoneCallPayload> calls) async {
+    if (calls.isEmpty) {
+      print('ℹ️ No phone calls to sync');
+      return;
+    }
+
+    print('🔄 Syncing ${calls.length} phone calls to backend...');
+    int successCount = 0;
+    int errorCount = 0;
+
+    for (var call in calls) {
+      try {
+        await addPhoneCall(call);
+        successCount++;
+      } catch (e) {
+        errorCount++;
+        print('⚠️ Failed to sync phone call ${call.call}: $e');
+        // Continue with next call instead of stopping entire sync
+      }
+    }
+
+    print('✅ Phone call sync completed: $successCount succeeded, $errorCount failed');
   }
 }

@@ -14,6 +14,8 @@ import 'package:epansa_app/services/sms_service.dart';
 import 'package:epansa_app/services/call_service.dart';
 import 'package:epansa_app/data/api/agent_api_client.dart';
 import 'package:epansa_app/data/repositories/alarm_repository.dart';
+import 'package:epansa_app/data/repositories/contact_repository.dart';
+import 'package:epansa_app/data/repositories/phone_call_repository.dart';
 import 'package:epansa_app/presentation/screens/login_screen.dart';
 import 'package:epansa_app/presentation/screens/chat_screen.dart';
 
@@ -86,16 +88,33 @@ class _EpansaAppState extends State<EpansaApp> {
         ChangeNotifierProvider(
           create: (_) => CallService()..initialize(),
         ),
-        ChangeNotifierProvider(create: (_) => SyncService()),
-        // Create AlarmRepository as a singleton
+        // Create AlarmRepository, ContactRepository, and PhoneCallRepository as singletons
         Provider(create: (_) => AlarmRepository()),
-        // Create AgentApiClient with AuthService and AlarmRepository dependencies
-        ProxyProvider2<AuthService, AlarmRepository, AgentApiClient>(
-          update: (context, authService, alarmRepository, previous) =>
+        Provider(create: (_) => ContactRepository()),
+        Provider(create: (_) => PhoneCallRepository()),
+        // Create AgentApiClient with AuthService, AlarmRepository, ContactRepository, and PhoneCallRepository dependencies
+        ProxyProvider4<AuthService, AlarmRepository, ContactRepository, PhoneCallRepository, AgentApiClient>(
+          update: (context, authService, alarmRepository, contactRepository, phoneCallRepository, previous) =>
               AgentApiClient(
                 authService: authService,
                 alarmRepository: alarmRepository,
+                contactRepository: contactRepository,
+                phoneCallRepository: phoneCallRepository,
                 useMockData: false, // Use real backend
+              ),
+        ),
+        // Create SyncService with dependencies
+        ChangeNotifierProxyProvider3<AgentApiClient, ContactRepository, PhoneCallRepository, SyncService>(
+          create: (context) => SyncService(
+            apiClient: context.read<AgentApiClient>(),
+            contactRepository: context.read<ContactRepository>(),
+            phoneCallRepository: context.read<PhoneCallRepository>(),
+          ),
+          update: (context, apiClient, contactRepository, phoneCallRepository, previous) =>
+              previous ?? SyncService(
+                apiClient: apiClient,
+                contactRepository: contactRepository,
+                phoneCallRepository: phoneCallRepository,
               ),
         ),
         ChangeNotifierProxyProvider3<AlarmRepository, AlarmService, AgentApiClient, AlarmProvider>(
