@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:epansa_app/data/models/chat_message.dart';
+import 'package:epansa_app/data/models/api/chat_api_models.dart';
 import 'package:epansa_app/data/api/agent_api_client.dart';
 import 'package:epansa_app/services/alarm_service.dart';
 import 'package:epansa_app/services/calendar_event_service.dart';
@@ -77,14 +78,27 @@ class ChatProvider extends ChangeNotifier {
       }
 
       // Get response from agent
-      final response = await _apiClient.sendMessage(text);
+      final chatResponse = await _apiClient.sendMessage(text);
 
+      // Check if response has an error
+      if (chatResponse.hasError) {
+        final errorMessage = ChatMessage.assistant(
+          chatResponse.error!,
+          type: MessageType.error,
+        );
+        _messages.add(errorMessage);
+      }
       // Check if response contains an action request
-      if (response.startsWith('ACTION_REQUEST:')) {
-        _handleActionRequest(response);
-      } else {
-        // Add assistant message
-        final assistantMessage = ChatMessage.assistant(response);
+      else if (chatResponse.hasAction) {
+        _handleBackendAction(chatResponse);
+      }
+      // Check if response text contains mock action request format (for backward compatibility)
+      else if (chatResponse.text.startsWith('ACTION_REQUEST:')) {
+        _handleActionRequest(chatResponse.text);
+      }
+      // Normal text response
+      else {
+        final assistantMessage = ChatMessage.assistant(chatResponse.text);
         _messages.add(assistantMessage);
       }
     } catch (e) {
@@ -246,7 +260,49 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Handle action request from agent
+  /// Handle action requests from backend
+  void _handleBackendAction(ChatResponse chatResponse) {
+    if (!chatResponse.hasAction) return;
+
+    // Determine action type from backend action string
+    ActionType actionType;
+    switch (chatResponse.action?.toUpperCase()) {
+      case 'SEND_SMS':
+        actionType = ActionType.sendSms;
+        break;
+      case 'MAKE_CALL':
+        actionType = ActionType.makeCall;
+        break;
+      case 'SET_ALARM':
+        actionType = ActionType.setAlarm;
+        break;
+      case 'CREATE_EVENT':
+      case 'SET_EVENT':
+        actionType = ActionType.createEvent;
+        break;
+      default:
+        actionType = ActionType.other;
+    }
+
+    // Create pending action with data from backend
+    _pendingAction = PendingAction(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      description: chatResponse.response ?? 'Execute ${chatResponse.action}?',
+      type: actionType,
+      parameters: chatResponse.actionData ?? {},
+    );
+
+    // Add action request message
+    final actionMessage = ChatMessage.assistant(
+      _pendingAction!.description,
+      type: MessageType.actionRequest,
+      actionId: _pendingAction!.id,
+    );
+    _messages.add(actionMessage);
+    notifyListeners();
+  }
+
+  /// Handle legacy action request format (mock data compatibility)
   void _handleActionRequest(String response) {
     final parts = response.split(':');
     if (parts.length < 3) return;

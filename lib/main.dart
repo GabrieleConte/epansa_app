@@ -100,7 +100,7 @@ class _EpansaAppState extends State<EpansaApp> {
                 alarmRepository: alarmRepository,
                 contactRepository: contactRepository,
                 phoneCallRepository: phoneCallRepository,
-                useMockData: false, // Use real backend
+                useMockData: AppConfig.useMockData, // Use config value (defaults to false)
               ),
         ),
         // Create SyncService with dependencies

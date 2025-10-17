@@ -3,6 +3,7 @@ import 'package:epansa_app/core/config/app_config.dart';
 import 'package:epansa_app/data/models/api/alarm_api_models.dart';
 import 'package:epansa_app/data/models/api/contact_api_models.dart';
 import 'package:epansa_app/data/models/api/phone_call_api_models.dart';
+import 'package:epansa_app/data/models/api/chat_api_models.dart';
 import 'package:epansa_app/data/repositories/alarm_repository.dart';
 import 'package:epansa_app/data/repositories/contact_repository.dart';
 import 'package:epansa_app/data/repositories/phone_call_repository.dart';
@@ -34,28 +35,39 @@ class AgentApiClient {
         ));
 
   /// Send a message to the agent and get a response
-  Future<String> sendMessage(String message) async {
+  Future<ChatResponse> sendMessage(String message) async {
     if (useMockData) {
       // Simulate network delay
       await Future.delayed(const Duration(milliseconds: 800));
-      return _getMockResponse(message);
+      final mockResponseText = _getMockResponse(message);
+      return ChatResponse(response: mockResponseText);
     }
 
     try {
       final headers = await authService.getAuthHeaders();
       
+      // Create ChatPayload
+      final payload = ChatPayload(text: message);
+      
       final response = await _dio.post(
         '/chat',
-        data: {
-          'text': message, // Backend expects 'text' field based on ChatPayload schema
-        },
+        data: payload.toJson(),
         options: Options(headers: headers),
       );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return response.data['response'] ?? 'No response received';
+      if (response.statusCode == 200) {
+        // Parse the response from backend
+        // The backend's process_user_command returns a dictionary
+        final responseData = response.data as Map<String, dynamic>;
+        return ChatResponse.fromJson(responseData);
       } else {
         throw Exception('Failed to get response: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      if (e.response != null) {
+        throw Exception('Agent API error: ${e.response?.statusCode} - ${e.response?.data}');
+      } else {
+        throw Exception('Network error: ${e.message}');
       }
     } catch (e) {
       throw Exception('Error communicating with agent: $e');

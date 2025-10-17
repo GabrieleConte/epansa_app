@@ -45,6 +45,10 @@ class AppConfig {
   static String get agentWebSocketUrl => 
       dotenv.env['AGENT_WEBSOCKET_URL'] ?? 'YOUR_AGENT_WEBSOCKET_URL_HERE';
 
+  /// Use mock data for testing (set to false to use real backend)
+  static bool get useMockData => 
+      dotenv.env['USE_MOCK_DATA']?.toLowerCase() == 'true';
+
   // ========================================
   // Google OAuth Configuration
   // ========================================
