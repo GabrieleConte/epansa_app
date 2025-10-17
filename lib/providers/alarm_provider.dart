@@ -56,6 +56,8 @@ class AlarmProvider extends ChangeNotifier {
     required String label,
     required bool enabled,
     required List<int> repeatDays,
+    String? repeatFrequency,
+    String? repeatOn,
   }) async {
     try {
       _error = null;
@@ -66,6 +68,8 @@ class AlarmProvider extends ChangeNotifier {
         label: label,
         enabled: enabled,
         repeatDays: repeatDays,
+        repeatFrequency: repeatFrequency,
+        repeatOn: repeatOn,
       );
 
       // Save to local storage

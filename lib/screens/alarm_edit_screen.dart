@@ -18,6 +18,8 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
   late TimeOfDay _selectedTime;
   late bool _enabled;
   late Set<int> _selectedDays;
+  late String _repeatFrequency; // "once", "daily", "weekly", "monthly", "yearly"
+  late TextEditingController _repeatOnController; // For monthly/yearly patterns
   bool _isSaving = false;
 
   bool get isEditMode => widget.alarm != null;
@@ -35,18 +37,23 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
       );
       _enabled = widget.alarm!.enabled;
       _selectedDays = Set.from(widget.alarm!.repeatDays);
+      _repeatFrequency = widget.alarm!.repeatFrequency ?? 'once';
+      _repeatOnController = TextEditingController(text: widget.alarm!.repeatOn ?? '');
     } else {
       // Creating new alarm
       _labelController = TextEditingController();
       _selectedTime = TimeOfDay.now();
       _enabled = true;
       _selectedDays = {};
+      _repeatFrequency = 'once';
+      _repeatOnController = TextEditingController();
     }
   }
 
   @override
   void dispose() {
     _labelController.dispose();
+    _repeatOnController.dispose();
     super.dispose();
   }
 
@@ -125,13 +132,58 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
 
             const SizedBox(height: 24),
 
-            // Repeat Days
+            // Repeat Frequency
             _buildSection(
-              title: 'Repeat',
-              child: _buildDaySelector(),
+              title: 'Repeat Frequency',
+              child: _buildFrequencySelector(),
             ),
 
             const SizedBox(height: 24),
+
+            // Repeat Days (only show for weekly)
+            if (_repeatFrequency == 'weekly')
+              _buildSection(
+                title: 'Repeat On',
+                child: _buildDaySelector(),
+              ),
+
+            // Repeat On field (for monthly/yearly)
+            if (_repeatFrequency == 'monthly' || _repeatFrequency == 'yearly')
+              _buildSection(
+                title: 'Repeat On',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: _repeatOnController,
+                      decoration: InputDecoration(
+                        hintText: _repeatFrequency == 'monthly' 
+                            ? 'e.g., "15" or "3 TU"'
+                            : 'e.g., "11-Sep"',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        prefixIcon: const Icon(Icons.event_repeat),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _repeatFrequency == 'monthly'
+                          ? 'Examples: "15" (15th day), "3 TU" (3rd Tuesday)'
+                          : 'Examples: "11-Sep", "25-Dec"',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+
+            if (_repeatFrequency == 'weekly')
+              const SizedBox(height: 24),
+
+            if (_repeatFrequency == 'monthly' || _repeatFrequency == 'yearly')
+              const SizedBox(height: 24),
 
             // Enabled Switch
             SwitchListTile(
@@ -180,6 +232,55 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
         ),
         child,
       ],
+    );
+  }
+
+  Widget _buildFrequencySelector() {
+    final frequencies = [
+      ('once', 'Once', Icons.looks_one),
+      ('daily', 'Daily', Icons.today),
+      ('weekly', 'Weekly', Icons.view_week),
+      ('monthly', 'Monthly', Icons.calendar_month),
+      ('yearly', 'Yearly', Icons.calendar_today),
+    ];
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: frequencies.map((freq) {
+        final value = freq.$1;
+        final label = freq.$2;
+        final icon = freq.$3;
+        final isSelected = _repeatFrequency == value;
+
+        return ChoiceChip(
+          label: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18),
+              const SizedBox(width: 4),
+              Text(label),
+            ],
+          ),
+          selected: isSelected,
+          onSelected: (selected) {
+            if (selected) {
+              setState(() {
+                _repeatFrequency = value;
+                // Clear repeat days when switching from weekly
+                if (value != 'weekly') {
+                  _selectedDays.clear();
+                }
+                // Clear repeatOn when switching to once, daily, or weekly
+                if (value == 'once' || value == 'daily' || value == 'weekly') {
+                  _repeatOnController.clear();
+                }
+              });
+            }
+          },
+          selectedColor: Theme.of(context).primaryColor.withOpacity(0.3),
+        );
+      }).toList(),
     );
   }
 
@@ -247,6 +348,19 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
       return;
     }
 
+    // Validate repeat pattern for monthly/yearly
+    if ((_repeatFrequency == 'monthly' || _repeatFrequency == 'yearly') &&
+        _repeatOnController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please specify when to repeat (e.g., ${_repeatFrequency == 'monthly' ? '"15" or "3 TU"' : '"11-Sep"'})',
+          ),
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
 
     try {
@@ -260,7 +374,13 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
           minute: _selectedTime.minute,
           label: _labelController.text.trim(),
           enabled: _enabled,
-          repeatDays: _selectedDays.toList()..sort(),
+          repeatDays: _repeatFrequency == 'weekly' 
+              ? (_selectedDays.toList()..sort())
+              : [],
+          repeatFrequency: _repeatFrequency == 'once' ? null : _repeatFrequency,
+          repeatOn: (_repeatFrequency == 'monthly' || _repeatFrequency == 'yearly')
+              ? _repeatOnController.text.trim()
+              : null,
           updatedAt: DateTime.now(),
         );
         success = await alarmProvider.updateAlarm(updatedAlarm);
@@ -271,7 +391,13 @@ class _AlarmEditScreenState extends State<AlarmEditScreen> {
           minute: _selectedTime.minute,
           label: _labelController.text.trim(),
           enabled: _enabled,
-          repeatDays: _selectedDays.toList()..sort(),
+          repeatDays: _repeatFrequency == 'weekly'
+              ? (_selectedDays.toList()..sort())
+              : [],
+          repeatFrequency: _repeatFrequency == 'once' ? null : _repeatFrequency,
+          repeatOn: (_repeatFrequency == 'monthly' || _repeatFrequency == 'yearly')
+              ? _repeatOnController.text.trim()
+              : null,
         );
       }
 

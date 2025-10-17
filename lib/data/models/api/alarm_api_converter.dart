@@ -6,20 +6,24 @@ import 'package:intl/intl.dart';
 extension AlarmApiConverter on Alarm {
   /// Convert to AlarmPayload for backend API
   AlarmPayload toApiPayload() {
-    final bool isRecurrent = repeatDays.isNotEmpty;
+    // Determine if it's a recurrent alarm based on repeatFrequency
+    final bool isRecurrent = repeatFrequency != null && 
+                             repeatFrequency != 'once' && 
+                             repeatFrequency!.isNotEmpty;
+    
     final String timeStr = '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
 
     AlarmMetadata metadata;
     String recurrenceType;
 
     if (isRecurrent) {
-      // Recurrent alarm
+      // Recurrent alarm (daily, weekly, monthly, yearly)
       recurrenceType = 'recurrent';
       metadata = RecurrentAlarmMetadata(
         label: label,
         time: timeStr,
-        repeatFrequency: 'weekly', // We support weekly repeats
-        on: _formatRepeatDays(),
+        repeatFrequency: repeatFrequency!,
+        on: _formatRepeatOn(),
       );
     } else {
       // Single occurrence alarm - use tomorrow's date as default
@@ -49,8 +53,34 @@ extension AlarmApiConverter on Alarm {
     );
   }
 
-  /// Format repeat days for backend (e.g., "Mon, Wed, Fri" or "Every day")
-  String _formatRepeatDays() {
+  /// Format repeat "on" field based on frequency
+  /// - daily: "Every day"
+  /// - weekly: "Mon, Wed, Fri" or "Every day" or "MO,TU,WE"
+  /// - monthly: "15" (day of month) or "3 TU" (3rd Tuesday)
+  /// - yearly: "11-Sep" (day-month)
+  String _formatRepeatOn() {
+    if (repeatFrequency == 'daily') {
+      return 'Every day';
+    }
+    
+    if (repeatFrequency == 'weekly') {
+      return _formatWeeklyRepeatDays();
+    }
+    
+    if (repeatFrequency == 'monthly' || repeatFrequency == 'yearly') {
+      // Use the repeatOn field directly if set
+      if (repeatOn != null && repeatOn!.isNotEmpty) {
+        return repeatOn!;
+      }
+      // Default fallback
+      return repeatFrequency == 'monthly' ? '1' : '01-Jan';
+    }
+    
+    return '';
+  }
+
+  /// Format repeat days for weekly alarms (e.g., "Mon, Wed, Fri" or "Every day")
+  String _formatWeeklyRepeatDays() {
     if (repeatDays.isEmpty) {
       return 'Never';
     }

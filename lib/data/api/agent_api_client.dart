@@ -215,7 +215,9 @@ class AgentApiClient {
       
       // Fetch the alarm from repository to determine if it's recurrent
       final alarm = await alarmRepository.getAlarm(alarmId);
-      final isRecurrent = alarm?.repeatDays.isNotEmpty ?? false;
+      final isRecurrent = alarm?.repeatFrequency != null && 
+                          alarm!.repeatFrequency != 'once' && 
+                          alarm.repeatFrequency!.isNotEmpty;
       final recurrenceType = isRecurrent ? 'recurrent' : 'single-occurrence';
       
       final deletePayload = DeletePayload(

@@ -5,7 +5,9 @@ class Alarm {
   final int minute; // 0-59
   final String label;
   final bool enabled;
-  final List<int> repeatDays; // 1=Monday, 7=Sunday (empty = one-time)
+  final List<int> repeatDays; // 1=Monday, 7=Sunday (empty = one-time, used for weekly)
+  final String? repeatFrequency; // null (one-time), "daily", "weekly", "monthly", "yearly"
+  final String? repeatOn; // Used for monthly/yearly: "15", "3 TU", "11-Sep", etc.
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -16,6 +18,8 @@ class Alarm {
     required this.label,
     required this.enabled,
     required this.repeatDays,
+    this.repeatFrequency,
+    this.repeatOn,
     required this.createdAt,
     this.updatedAt,
   });
@@ -27,6 +31,8 @@ class Alarm {
     required String label,
     required bool enabled,
     required List<int> repeatDays,
+    String? repeatFrequency,
+    String? repeatOn,
   }) {
     return Alarm(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -35,6 +41,8 @@ class Alarm {
       label: label,
       enabled: enabled,
       repeatDays: repeatDays,
+      repeatFrequency: repeatFrequency,
+      repeatOn: repeatOn,
       createdAt: DateTime.now(),
     );
   }
@@ -47,6 +55,8 @@ class Alarm {
     String? label,
     bool? enabled,
     List<int>? repeatDays,
+    String? repeatFrequency,
+    String? repeatOn,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -57,6 +67,8 @@ class Alarm {
       label: label ?? this.label,
       enabled: enabled ?? this.enabled,
       repeatDays: repeatDays ?? this.repeatDays,
+      repeatFrequency: repeatFrequency ?? this.repeatFrequency,
+      repeatOn: repeatOn ?? this.repeatOn,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -71,6 +83,8 @@ class Alarm {
       'label': label,
       'enabled': enabled,
       'repeatDays': repeatDays,
+      'repeatFrequency': repeatFrequency,
+      'repeatOn': repeatOn,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -85,6 +99,8 @@ class Alarm {
       label: json['label'] as String,
       enabled: json['enabled'] as bool,
       repeatDays: (json['repeatDays'] as List<dynamic>).cast<int>(),
+      repeatFrequency: json['repeatFrequency'] as String?,
+      repeatOn: json['repeatOn'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: json['updatedAt'] != null 
           ? DateTime.parse(json['updatedAt'] as String) 
@@ -101,6 +117,30 @@ class Alarm {
 
   /// Get readable repeat days string
   String get repeatDaysString {
+    // Handle different repeat frequencies
+    if (repeatFrequency == null || repeatFrequency == 'once') {
+      return 'Once';
+    }
+    
+    if (repeatFrequency == 'daily') {
+      return 'Every day';
+    }
+    
+    if (repeatFrequency == 'monthly') {
+      if (repeatOn != null && repeatOn!.isNotEmpty) {
+        return 'Monthly on $repeatOn';
+      }
+      return 'Monthly';
+    }
+    
+    if (repeatFrequency == 'yearly') {
+      if (repeatOn != null && repeatOn!.isNotEmpty) {
+        return 'Yearly on $repeatOn';
+      }
+      return 'Yearly';
+    }
+    
+    // Weekly frequency - use repeatDays
     if (repeatDays.isEmpty) return 'Once';
     if (repeatDays.length == 7) return 'Every day';
     

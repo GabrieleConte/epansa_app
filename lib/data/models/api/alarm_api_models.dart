@@ -35,11 +35,23 @@ class SingleAlarmMetadata extends AlarmMetadata {
 }
 
 /// Metadata for a recurring alarm
+/// 
+/// Supported repeat frequencies:
+/// - "daily": Alarm repeats every day
+/// - "weekly": Alarm repeats on specific days of the week
+/// - "monthly": Alarm repeats on specific day(s) of the month
+/// - "yearly": Alarm repeats on specific date(s) of the year
+/// 
+/// The "on" field format depends on the repeat frequency:
+/// - daily: "Every day"
+/// - weekly: "MO,TU,WE" or "Monday, Tuesday" or "Mon, Wed, Fri"
+/// - monthly: "15" (15th day) or "3 TU" (3rd Tuesday)
+/// - yearly: "11-Sep" (September 11th)
 class RecurrentAlarmMetadata extends AlarmMetadata {
   final String label;
   final String time; // Format: HH:MM (24-hour)
-  final String repeatFrequency; // e.g., "daily", "weekly"
-  final String on; // e.g., "Mon, Wed, Fri" or "Every day"
+  final String repeatFrequency; // "daily", "weekly", "monthly", "yearly"
+  final String on; // Format depends on repeatFrequency (see class doc)
 
   RecurrentAlarmMetadata({
     required this.label,
