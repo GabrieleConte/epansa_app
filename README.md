@@ -46,6 +46,9 @@ The application follows a **client-server architecture**:
 - **Alarm Management**: Create, edit, and delete device alarms
 - **Notes**: Internal note-taking with cloud synchronization
 
+### PREFERRED DEVICE/PLATFORM
+- **Android**: Pixel 8, Android 16, API 36
+
 #### Device Actions
 - **SMS Operations**: Send text messages via agent commands
 - **Phone Calls**: Initiate calls through the assistant
