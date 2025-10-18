@@ -86,7 +86,7 @@ The app synchronizes the following data types with the backend:
 - **API Communication**: RESTful HTTP/JSON
 - **Authentication**: Google OAuth 2.0 + JWT
 - **Base URL**: Configurable via `.env` file
-- **Default**: `http://10.0.2.2:5001` (Android emulator)
+- **Default**: `http://10.0.2.2:5000` (Android emulator)
 
 ### Platform-Specific Features
 - **Android**: 
@@ -162,7 +162,7 @@ Create a `.env` file in the project root:
 
 ```env
 # Backend API
-AGENT_API_BASE_URL=http://10.0.2.2:5001
+AGENT_API_BASE_URL=http://10.0.2.2:5000
 USE_MOCK_DATA=false
 
 # Google OAuth

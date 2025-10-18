@@ -6,6 +6,9 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:call_log/call_log.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:dio/dio.dart';
+import 'package:epansa_app/core/config/app_config.dart';
 import 'package:epansa_app/data/api/agent_api_client.dart';
 import 'package:epansa_app/data/repositories/contact_repository.dart';
 import 'package:epansa_app/data/repositories/phone_call_repository.dart';
@@ -134,9 +137,12 @@ void callbackDispatcher() {
 /// This is separate from the service class so it can run independently
 /// 
 /// CRITICAL: This function runs in a background isolate on Android,
-/// meaning it executes even when the app is completely terminated
+/// meaning it executes even when the app is completely terminated.
+/// 
+/// This implementation recreates all necessary dependencies in the background isolate
+/// to perform real syncing while the app is closed.
 Future<void> _performBackgroundSyncTask() async {
-  debugPrint('📱 Executing background sync (app may be closed)...');
+  debugPrint('📱 Executing TRUE background sync (app may be closed)...');
   
   // Check if background sync is enabled
   final prefs = await SharedPreferences.getInstance();
@@ -147,41 +153,153 @@ Future<void> _performBackgroundSyncTask() async {
     return;
   }
   
-  // Perform mock sync operations
-  debugPrint('🔄 Starting mock sync operations...');
-  await _backgroundSyncContacts();
-  // Calendar reading removed - handled by server reading Google Calendar
-  await _backgroundSyncAlarms();
-  await _backgroundSyncCallRegistry();
+  debugPrint('🔄 Starting real background sync operations...');
   
-  // Update last sync time
-  await prefs.setInt('last_sync_time', DateTime.now().millisecondsSinceEpoch);
-  debugPrint('✅ Background sync completed (app may still be closed)');
+  try {
+    // Initialize repositories for background isolate
+    final contactRepository = ContactRepository();
+    final phoneCallRepository = PhoneCallRepository();
+    
+    // Get auth token from secure storage
+    final secureStorage = const FlutterSecureStorage();
+    final jwtToken = await secureStorage.read(key: 'jwt_token');
+    
+    if (jwtToken == null || jwtToken.isEmpty) {
+      debugPrint('⚠️ [Background] No JWT token found, skipping sync');
+      return;
+    }
+    
+    // Sync contacts and calls in alternating batches
+    await _backgroundSyncContactsAndCalls(
+      contactRepository, 
+      phoneCallRepository, 
+      jwtToken,
+    );
+    
+    // Update last sync time
+    await prefs.setInt('last_sync_time', DateTime.now().millisecondsSinceEpoch);
+    debugPrint('✅ Background sync completed successfully (app may still be closed)');
+  } catch (e, stackTrace) {
+    debugPrint('❌ Background sync error: $e');
+    debugPrint('Stack trace: $stackTrace');
+  }
 }
 
-
-
-Future<void> _backgroundSyncContacts() async {
-  debugPrint('👥 [Background] Syncing contacts...');
-  await Future.delayed(const Duration(milliseconds: 500));
-  debugPrint('✅ [Background] Contacts synced');
+/// Background sync for contacts and calls (runs in separate isolate)
+/// Makes direct HTTP calls without using AgentApiClient to avoid dependency injection issues
+Future<void> _backgroundSyncContactsAndCalls(
+  ContactRepository contactRepository,
+  PhoneCallRepository phoneCallRepository,
+  String jwtToken,
+) async {
+  debugPrint('👥📞 [Background] Syncing contacts and calls in alternating batches...');
+  
+  try {
+    // Check (not request) permissions - they must be granted before app is closed
+    final contactsPermission = await Permission.contacts.status;
+    if (!contactsPermission.isGranted) {
+      debugPrint('⚠️ [Background] Contacts permission not granted, cannot sync');
+      return;
+    }
+    
+    bool hasPhonePermission = false;
+    if (!kIsWeb && Platform.isAndroid) {
+      final phonePermission = await Permission.phone.status;
+      hasPhonePermission = phonePermission.isGranted;
+      if (!hasPhonePermission) {
+        debugPrint('⚠️ [Background] Phone permission not granted, skipping call sync');
+      }
+    }
+    
+    // Fetch unsynced contacts
+    final unsyncedContacts = await contactRepository.getUnsyncedContacts();
+    debugPrint('📱 [Background] Found ${unsyncedContacts.length} unsynced contacts');
+    
+    // Fetch unsynced calls (Android only)
+    List<PhoneCall> unsyncedCalls = [];
+    if (!kIsWeb && Platform.isAndroid && hasPhonePermission) {
+      try {
+        unsyncedCalls = await phoneCallRepository.getUnsyncedCalls();
+        debugPrint('📞 [Background] Found ${unsyncedCalls.length} unsynced calls');
+      } catch (e) {
+        debugPrint('⚠️ [Background] Could not fetch calls: $e');
+      }
+    }
+    
+    // Initialize AppConfig and get base URL
+    await AppConfig.initialize();
+    final baseUrl = AppConfig.agentApiBaseUrl;
+    
+    // Create Dio client for direct HTTP calls
+    final dio = Dio(BaseOptions(
+      baseUrl: baseUrl,
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
+      headers: {
+        'Authorization': 'Bearer $jwtToken',
+        'Content-Type': 'application/json',
+      },
+    ));
+    
+    // Sync in alternating batches (5 contacts, 5 calls, repeat)
+    int contactIndex = 0;
+    int callIndex = 0;
+    const batchSize = 5;
+    
+    while (contactIndex < unsyncedContacts.length || callIndex < unsyncedCalls.length) {
+      // Sync batch of contacts
+      if (contactIndex < unsyncedContacts.length) {
+        final contactBatch = unsyncedContacts.skip(contactIndex).take(batchSize).toList();
+        for (var contact in contactBatch) {
+          try {
+            await Future.delayed(const Duration(seconds: 10));
+            
+            final payload = ContactApiConverter.toApiPayload(contact);
+            final response = await dio.post('/add_contact', data: payload.toJson());
+            
+            if (response.statusCode == 200 || response.statusCode == 201) {
+              await contactRepository.markAsSynced(contact.id);
+              debugPrint('✅ [Background] Contact synced: ${contact.name}');
+            } else {
+              debugPrint('⚠️ [Background] Contact sync failed with status: ${response.statusCode}');
+            }
+          } catch (e) {
+            debugPrint('❌ [Background] Failed to sync contact ${contact.name}: $e');
+          }
+        }
+        contactIndex += batchSize;
+      }
+      
+      // Sync batch of calls
+      if (callIndex < unsyncedCalls.length) {
+        final callBatch = unsyncedCalls.skip(callIndex).take(batchSize).toList();
+        for (var call in callBatch) {
+          try {
+            await Future.delayed(const Duration(seconds: 10));
+            
+            final payload = PhoneCallApiConverter.toApiPayload(call);
+            final response = await dio.post('/add_telephone', data: payload.toJson());
+            
+            if (response.statusCode == 200 || response.statusCode == 201) {
+              await phoneCallRepository.markAsSynced(call.id);
+              debugPrint('✅ [Background] Call synced: ${call.phoneNumber}');
+            } else {
+              debugPrint('⚠️ [Background] Call sync failed with status: ${response.statusCode}');
+            }
+          } catch (e) {
+            debugPrint('❌ [Background] Failed to sync call ${call.phoneNumber}: $e');
+          }
+        }
+        callIndex += batchSize;
+      }
+    }
+    
+    debugPrint('✅ [Background] Contacts and calls sync completed');
+  } catch (e, stackTrace) {
+    debugPrint('❌ [Background] Error syncing contacts/calls: $e');
+    debugPrint('Stack trace: $stackTrace');
+  }
 }
-
-// Calendar reading removed - server handles Google Calendar
-// App will only write events to device calendar when received from server
-
-Future<void> _backgroundSyncAlarms() async {
-  debugPrint('⏰ [Background] Syncing alarms...');
-  await Future.delayed(const Duration(milliseconds: 500));
-  debugPrint('✅ [Background] Alarms synced');
-}
-
-Future<void> _backgroundSyncCallRegistry() async {
-  debugPrint('📞 [Background] Syncing call registry...');
-  await Future.delayed(const Duration(milliseconds: 500));
-  debugPrint('✅ [Background] Call registry synced');
-}
-
 /// Service for syncing user data (contacts, calendar) with the agent server
 /// 
 /// BACKGROUND SYNC CAPABILITIES:
@@ -262,6 +380,18 @@ class SyncService extends ChangeNotifier {
     if (lastSyncTimestamp != null) {
       _lastSyncTime = DateTime.fromMillisecondsSinceEpoch(lastSyncTimestamp);
     }
+    
+    // Check if background sync was triggered while app was closed
+    final backgroundSyncNeeded = prefs.getBool('background_sync_needed') ?? false;
+    if (backgroundSyncNeeded) {
+      debugPrint('🔄 Background sync was triggered - performing sync now...');
+      await prefs.setBool('background_sync_needed', false);
+      // Perform sync in background (don't block initialization)
+      Future.delayed(const Duration(seconds: 2), () {
+        performSync();
+      });
+    }
+    
     notifyListeners();
   }
 
