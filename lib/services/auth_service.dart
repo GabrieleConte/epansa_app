@@ -45,7 +45,7 @@ class AuthService extends ChangeNotifier {
     try {
       _jwtToken = await _secureStorage.read(key: 'jwt_token');
       if (_jwtToken != null) {
-        debugPrint('✅ Loaded JWT token from storage');
+        debugPrint('Loaded JWT token from storage');
       }
     } catch (e) {
       debugPrint('Error loading JWT token: $e');
@@ -74,32 +74,32 @@ class AuthService extends ChangeNotifier {
   /// Sign in with Google and exchange for backend JWT
   Future<bool> signIn() async {
     try {
-      debugPrint('🔵 Attempting Google Sign-In...');
-      debugPrint('🔵 Platform: ${kIsWeb ? "Web" : (Platform.isIOS ? "iOS" : "Android")}');
-      debugPrint('🔵 serverClientId: ${_googleSignIn.serverClientId ?? "null"}');
-      debugPrint('🔵 Package name should be: com.example.epansa_app');
+      debugPrint('Attempting Google Sign-In...');
+      debugPrint('Platform: ${kIsWeb ? "Web" : (Platform.isIOS ? "iOS" : "Android")}');
+      debugPrint('serverClientId: ${_googleSignIn.serverClientId ?? "null"}');
+      debugPrint('Package name should be: com.example.epansa_app');
       
       // Use v6 signIn() method
       final account = await _googleSignIn.signIn();
       
       if (account == null) {
-        debugPrint('❌ Sign-in cancelled by user');
+        debugPrint('Sign-in cancelled by user');
         return false;
       }
       
-      debugPrint('✅ Google Sign-in successful: ${account.email}');
-      debugPrint('🔍 Checking for server auth code...');
+      debugPrint('Google Sign-in successful: ${account.email}');
+      debugPrint('Checking for server auth code...');
       
       // Get server auth code for backend exchange
       final authCode = await account.serverAuthCode;
-      debugPrint('🔍 Server auth code: ${authCode != null ? "✅ Received (${authCode.length} chars)" : "❌ NULL"}');
+      debugPrint('🔍 Server auth code: ${authCode != null ? "✅ Received (${authCode.length} chars)" : "NULL"}');
       
       if (authCode == null) {
-        debugPrint('❌ Failed to get server auth code - this might mean:');
+        debugPrint('Failed to get server auth code - this might mean:');
         debugPrint('   1. serverClientId not properly configured');
         debugPrint('   2. Web OAuth client not created in Google Console');
         debugPrint('   3. OAuth consent screen not configured');
-        debugPrint('⚠️  Attempting to continue without backend auth...');
+        debugPrint('⚠Attempting to continue without backend auth...');
         
         // For now, let's still mark as signed in locally
         _currentUser = account;
@@ -112,16 +112,16 @@ class AuthService extends ChangeNotifier {
         return true; // Return true to allow testing without backend
       }
       
-      debugPrint('✅ Got server auth code, exchanging with backend...');
+      debugPrint('Got server auth code, exchanging with backend...');
       
       // Exchange auth code with backend for JWT
       final jwt = await _exchangeAuthCode(authCode);
       if (jwt == null) {
-        debugPrint('❌ Failed to exchange auth code with backend');
+        debugPrint('Failed to exchange auth code with backend');
         return false;
       }
       
-      debugPrint('✅ Received JWT from backend');
+      debugPrint('Received JWT from backend');
       
       _currentUser = account;
       _isSignedIn = true;
@@ -134,12 +134,12 @@ class AuthService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('was_signed_in', true);
       
-      debugPrint('✅ Sign-in complete and JWT stored');
+      debugPrint('Sign-in complete and JWT stored');
       notifyListeners();
       return true;
     } catch (error, stackTrace) {
-      debugPrint('❌ Error signing in: $error');
-      debugPrint('❌ Stack trace: $stackTrace');
+      debugPrint('Error signing in: $error');
+      debugPrint('Stack trace: $stackTrace');
       return false;
     }
   }
@@ -150,8 +150,8 @@ class AuthService extends ChangeNotifier {
       final url = '${AppConfig.agentApiBaseUrl}/auth/google/exchange_code';
       final payload = {'auth_code': authCode};
       
-      debugPrint('🔍 Sending request to: $url');
-      debugPrint('🔍 Payload: $payload');
+      debugPrint('Sending request to: $url');
+      debugPrint('Payload: $payload');
       
       final response = await _dio.post(
         url,
@@ -162,20 +162,20 @@ class AuthService extends ChangeNotifier {
         ),
       );
       
-      debugPrint('🔍 Response status: ${response.statusCode}');
-      debugPrint('🔍 Response data: ${response.data}');
+      debugPrint('Response status: ${response.statusCode}');
+      debugPrint('Response data: ${response.data}');
       
       if (response.statusCode == 200 && response.data != null) {
         // Extract JWT from response (adjust based on actual response format)
         final jwt = response.data['access_token'] ?? response.data['token'];
-        debugPrint('✅ Extracted JWT: ${jwt != null ? "Success" : "Failed - keys available: ${response.data.keys}"}');
+        debugPrint('Extracted JWT: ${jwt != null ? "Success" : "Failed - keys available: ${response.data.keys}"}');
         return jwt as String?;
       }
       
-      debugPrint('❌ Backend returned status ${response.statusCode}: ${response.data}');
+      debugPrint('Backend returned status ${response.statusCode}: ${response.data}');
       return null;
     } catch (e) {
-      debugPrint('❌ Error exchanging auth code: $e');
+      debugPrint('Error exchanging auth code: $e');
       return null;
     }
   }
@@ -203,13 +203,13 @@ class AuthService extends ChangeNotifier {
 
   /// Get authentication headers for backend API calls
   Future<Map<String, String>> getAuthHeaders() async {
-    debugPrint('🔍 getAuthHeaders called - JWT token present: ${_jwtToken != null}');
+    debugPrint('getAuthHeaders called - JWT token present: ${_jwtToken != null}');
     
     if (_jwtToken == null) {
-      debugPrint('❌ JWT token is null, checking secure storage...');
+      debugPrint('JWT token is null, checking secure storage...');
       // Try to reload from storage
       _jwtToken = await _secureStorage.read(key: 'jwt_token');
-      debugPrint('🔍 After reload - JWT token present: ${_jwtToken != null}');
+      debugPrint('After reload - JWT token present: ${_jwtToken != null}');
     }
     
     if (_jwtToken == null) {
@@ -220,7 +220,7 @@ class AuthService extends ChangeNotifier {
     final tokenPreview = _jwtToken!.length > 20 
         ? '${_jwtToken!.substring(0, 10)}...${_jwtToken!.substring(_jwtToken!.length - 10)}'
         : _jwtToken!;
-    debugPrint('✅ Returning auth headers with JWT: $tokenPreview');
+    debugPrint('Returning auth headers with JWT: $tokenPreview');
     
     return {
       'Authorization': 'Bearer $_jwtToken',

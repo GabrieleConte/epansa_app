@@ -44,7 +44,7 @@ Future<void> _initializeNotificationsForBackground() async {
     
     await _notificationsPlugin.initialize(settings);
   } catch (e) {
-    debugPrint('⚠️ Failed to initialize notifications in background: $e');
+    debugPrint('⚠Failed to initialize notifications in background: $e');
   }
 }
 
@@ -86,7 +86,7 @@ Future<void> _showSilentSyncNotification({required bool isStarting}) async {
       await _notificationsPlugin.cancel(999);
     }
   } catch (e) {
-    debugPrint('⚠️ Failed to show sync notification: $e');
+    debugPrint('⚠Failed to show sync notification: $e');
   }
 }
 
@@ -98,8 +98,8 @@ Future<void> _showSilentSyncNotification({required bool isStarting}) async {
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    debugPrint('🔄 Background sync task triggered: $task');
-    debugPrint('📱 App state: CLOSED or BACKGROUND');
+    debugPrint('Background sync task triggered: $task');
+    debugPrint('App state: CLOSED or BACKGROUND');
     
     try {
       // Initialize notifications for silent sync indicator (optional)
@@ -118,10 +118,10 @@ void callbackDispatcher() {
         await _showSilentSyncNotification(isStarting: false);
       }
       
-      debugPrint('✅ Background sync task completed successfully');
+      debugPrint('Background sync task completed successfully');
       return Future.value(true);
     } catch (e) {
-      debugPrint('❌ Background sync task failed: $e');
+      debugPrint('Background sync task failed: $e');
       
       // Clear notification on error
       if (!kIsWeb && Platform.isAndroid) {
@@ -142,18 +142,18 @@ void callbackDispatcher() {
 /// This implementation recreates all necessary dependencies in the background isolate
 /// to perform real syncing while the app is closed.
 Future<void> _performBackgroundSyncTask() async {
-  debugPrint('📱 Executing TRUE background sync (app may be closed)...');
+  debugPrint('Executing TRUE background sync (app may be closed)...');
   
   // Check if background sync is enabled
   final prefs = await SharedPreferences.getInstance();
   final isEnabled = prefs.getBool('background_sync_enabled') ?? false;
   
   if (!isEnabled) {
-    debugPrint('⚠️ Background sync is disabled, skipping');
+    debugPrint('⚠Background sync is disabled, skipping');
     return;
   }
   
-  debugPrint('🔄 Starting real background sync operations...');
+  debugPrint('Starting real background sync operations...');
   
   try {
     // Initialize repositories for background isolate
@@ -165,7 +165,7 @@ Future<void> _performBackgroundSyncTask() async {
     final jwtToken = await secureStorage.read(key: 'jwt_token');
     
     if (jwtToken == null || jwtToken.isEmpty) {
-      debugPrint('⚠️ [Background] No JWT token found, skipping sync');
+      debugPrint('⚠[Background] No JWT token found, skipping sync');
       return;
     }
     
@@ -178,9 +178,9 @@ Future<void> _performBackgroundSyncTask() async {
     
     // Update last sync time
     await prefs.setInt('last_sync_time', DateTime.now().millisecondsSinceEpoch);
-    debugPrint('✅ Background sync completed successfully (app may still be closed)');
+    debugPrint('Background sync completed successfully (app may still be closed)');
   } catch (e, stackTrace) {
-    debugPrint('❌ Background sync error: $e');
+    debugPrint('Background sync error: $e');
     debugPrint('Stack trace: $stackTrace');
   }
 }
@@ -192,13 +192,13 @@ Future<void> _backgroundSyncContactsAndCalls(
   PhoneCallRepository phoneCallRepository,
   String jwtToken,
 ) async {
-  debugPrint('👥📞 [Background] Syncing contacts and calls in alternating batches...');
+  debugPrint('👥[Background] Syncing contacts and calls in alternating batches...');
   
   try {
     // Check (not request) permissions - they must be granted before app is closed
     final contactsPermission = await Permission.contacts.status;
     if (!contactsPermission.isGranted) {
-      debugPrint('⚠️ [Background] Contacts permission not granted, cannot sync');
+      debugPrint('⚠[Background] Contacts permission not granted, cannot sync');
       return;
     }
     
@@ -207,22 +207,22 @@ Future<void> _backgroundSyncContactsAndCalls(
       final phonePermission = await Permission.phone.status;
       hasPhonePermission = phonePermission.isGranted;
       if (!hasPhonePermission) {
-        debugPrint('⚠️ [Background] Phone permission not granted, skipping call sync');
+        debugPrint('⚠[Background] Phone permission not granted, skipping call sync');
       }
     }
     
     // Fetch unsynced contacts
     final unsyncedContacts = await contactRepository.getUnsyncedContacts();
-    debugPrint('📱 [Background] Found ${unsyncedContacts.length} unsynced contacts');
+    debugPrint('[Background] Found ${unsyncedContacts.length} unsynced contacts');
     
     // Fetch unsynced calls (Android only)
     List<PhoneCall> unsyncedCalls = [];
     if (!kIsWeb && Platform.isAndroid && hasPhonePermission) {
       try {
         unsyncedCalls = await phoneCallRepository.getUnsyncedCalls();
-        debugPrint('📞 [Background] Found ${unsyncedCalls.length} unsynced calls');
+        debugPrint('[Background] Found ${unsyncedCalls.length} unsynced calls');
       } catch (e) {
-        debugPrint('⚠️ [Background] Could not fetch calls: $e');
+        debugPrint('⚠[Background] Could not fetch calls: $e');
       }
     }
     
@@ -259,12 +259,12 @@ Future<void> _backgroundSyncContactsAndCalls(
             
             if (response.statusCode == 200 || response.statusCode == 201) {
               await contactRepository.markAsSynced(contact.id);
-              debugPrint('✅ [Background] Contact synced: ${contact.name}');
+              debugPrint('[Background] Contact synced: ${contact.name}');
             } else {
-              debugPrint('⚠️ [Background] Contact sync failed with status: ${response.statusCode}');
+              debugPrint('⚠[Background] Contact sync failed with status: ${response.statusCode}');
             }
           } catch (e) {
-            debugPrint('❌ [Background] Failed to sync contact ${contact.name}: $e');
+            debugPrint('[Background] Failed to sync contact ${contact.name}: $e');
           }
         }
         contactIndex += batchSize;
@@ -282,21 +282,21 @@ Future<void> _backgroundSyncContactsAndCalls(
             
             if (response.statusCode == 200 || response.statusCode == 201) {
               await phoneCallRepository.markAsSynced(call.id);
-              debugPrint('✅ [Background] Call synced: ${call.phoneNumber}');
+              debugPrint('[Background] Call synced: ${call.phoneNumber}');
             } else {
-              debugPrint('⚠️ [Background] Call sync failed with status: ${response.statusCode}');
+              debugPrint('⚠[Background] Call sync failed with status: ${response.statusCode}');
             }
           } catch (e) {
-            debugPrint('❌ [Background] Failed to sync call ${call.phoneNumber}: $e');
+            debugPrint('[Background] Failed to sync call ${call.phoneNumber}: $e');
           }
         }
         callIndex += batchSize;
       }
     }
     
-    debugPrint('✅ [Background] Contacts and calls sync completed');
+    debugPrint('[Background] Contacts and calls sync completed');
   } catch (e, stackTrace) {
-    debugPrint('❌ [Background] Error syncing contacts/calls: $e');
+    debugPrint('[Background] Error syncing contacts/calls: $e');
     debugPrint('Stack trace: $stackTrace');
   }
 }
@@ -368,7 +368,7 @@ class SyncService extends ChangeNotifier {
             ?.createNotificationChannel(channel);
       }
     } catch (e) {
-      debugPrint('⚠️ Failed to initialize foreground notifications: $e');
+      debugPrint('⚠Failed to initialize foreground notifications: $e');
     }
   }
 
@@ -384,7 +384,7 @@ class SyncService extends ChangeNotifier {
     // Check if background sync was triggered while app was closed
     final backgroundSyncNeeded = prefs.getBool('background_sync_needed') ?? false;
     if (backgroundSyncNeeded) {
-      debugPrint('🔄 Background sync was triggered - performing sync now...');
+      debugPrint('Background sync was triggered - performing sync now...');
       await prefs.setBool('background_sync_needed', false);
       // Perform sync in background (don't block initialization)
       Future.delayed(const Duration(seconds: 2), () {
@@ -402,7 +402,7 @@ class SyncService extends ChangeNotifier {
   /// - iOS: Background fetch when conditions are favorable (charging, WiFi)
   /// - Silent notifications provide optional visual feedback
   Future<void> enableBackgroundSync() async {
-    debugPrint('📱 Enabling background sync (works even when app is closed)...');
+    debugPrint('Enabling background sync (works even when app is closed)...');
     
     // Request notification permission (for silent sync indicator)
     if (!kIsWeb) {
@@ -421,7 +421,7 @@ class SyncService extends ChangeNotifier {
           );
         }
       } catch (e) {
-        debugPrint('⚠️ Notification permission request failed: $e');
+        debugPrint('⚠Notification permission request failed: $e');
       }
     }
     
@@ -435,14 +435,14 @@ class SyncService extends ChangeNotifier {
     // Register periodic background task
     try {
       if (kIsWeb) {
-        debugPrint('⚠️ Background sync not supported on web platform');
+        debugPrint('⚠Background sync not supported on web platform');
       } else if (Platform.isIOS) {
         // iOS: Enable background fetch
         // Note: iOS background fetch is opportunistic and controlled by the OS
         // It typically runs when device is charging and on WiFi
-        debugPrint('⚠️ iOS background sync is limited by the OS');
-        debugPrint('💡 iOS will sync when charging/WiFi (controlled by system)');
-        debugPrint('💡 For testing: Settings > Developer > Background Fetch');
+        debugPrint('⚠iOS background sync is limited by the OS');
+        debugPrint('iOS will sync when charging/WiFi (controlled by system)');
+        debugPrint('For testing: Settings > Developer > Background Fetch');
         
         // iOS still benefits from WorkManager for foreground periodic sync
         await Workmanager().registerPeriodicTask(
@@ -471,22 +471,22 @@ class SyncService extends ChangeNotifier {
           backoffPolicy: BackoffPolicy.exponential,
           backoffPolicyDelay: const Duration(minutes: 1),
         );
-        debugPrint('✅ Android WorkManager registered - will run even when app is closed');
-        debugPrint('📱 Sync will occur every 15-30 minutes (OS optimized)');
+        debugPrint('Android WorkManager registered - will run even when app is closed');
+        debugPrint('Sync will occur every 15-30 minutes (OS optimized)');
       }
     } catch (e) {
-      debugPrint('❌ Failed to register background task: $e');
+      debugPrint('Failed to register background task: $e');
     }
 
     // Perform initial sync
     await performSync();
 
-    debugPrint('✅ Background sync enabled (app-closed sync active)');
+    debugPrint('Background sync enabled (app-closed sync active)');
   }
 
   /// Disable background sync
   Future<void> disableBackgroundSync() async {
-    debugPrint('📱 Disabling background sync...');
+    debugPrint('Disabling background sync...');
     
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('background_sync_enabled', false);
@@ -498,26 +498,26 @@ class SyncService extends ChangeNotifier {
     try {
       if (!kIsWeb) {
         await Workmanager().cancelByUniqueName(syncTaskName);
-        debugPrint('✅ Background task cancelled');
+        debugPrint('Background task cancelled');
       }
     } catch (e) {
-      debugPrint('❌ Failed to cancel background task: $e');
+      debugPrint('Failed to cancel background task: $e');
     }
 
-    debugPrint('✅ Background sync disabled');
+    debugPrint('Background sync disabled');
   }
 
   /// Perform manual sync
   Future<bool> performSync() async {
     if (_isSyncing) {
-      debugPrint('⚠️ Sync already in progress');
+      debugPrint('⚠Sync already in progress');
       return false;
     }
 
     _isSyncing = true;
     notifyListeners();
 
-    debugPrint('🔄 Starting data sync...');
+    debugPrint('Starting data sync...');
 
     try {
       // Sync contacts and calls in alternating batches
@@ -531,12 +531,12 @@ class SyncService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('last_sync_time', _lastSyncTime!.millisecondsSinceEpoch);
 
-      debugPrint('✅ Sync completed successfully');
+      debugPrint('Sync completed successfully');
       _isSyncing = false;
       notifyListeners();
       return true;
     } catch (e) {
-      debugPrint('❌ Sync failed: $e');
+      debugPrint('Sync failed: $e');
       _isSyncing = false;
       notifyListeners();
       return false;
@@ -546,18 +546,18 @@ class SyncService extends ChangeNotifier {
   /// Sync contacts and phone calls in alternating batches
   /// This method syncs 5 contacts, then 5 calls, alternating until all are synced
   Future<void> _syncContactsAndCallsInBatches() async {
-    debugPrint('🔄 Starting alternating batch sync (5 contacts, then 5 calls, with 10s delay)...');
+    debugPrint('Starting alternating batch sync (5 contacts, then 5 calls, with 10s delay)...');
     
     // Check if dependencies are available
     if (_apiClient == null || _contactRepository == null || _phoneCallRepository == null) {
-      debugPrint('⚠️ Required repositories not available, skipping sync');
+      debugPrint('⚠Required repositories not available, skipping sync');
       return;
     }
     
     try {
       // Fetch and prepare contacts
       final contactsData = await _fetchDeviceContacts();
-      debugPrint('📱 Fetched ${contactsData.length} contacts from device');
+      debugPrint('Fetched ${contactsData.length} contacts from device');
       
       final List<epansa.Contact> localContacts = [];
       for (var contactData in contactsData) {
@@ -596,7 +596,7 @@ class SyncService extends ChangeNotifier {
       
       // Fetch and prepare phone calls
       final callLogsData = await _fetchCallLogs();
-      debugPrint('📱 Fetched ${callLogsData.length} call logs from device');
+      debugPrint('Fetched ${callLogsData.length} call logs from device');
       
       final List<PhoneCall> localCalls = [];
       for (var callData in callLogsData) {
@@ -654,11 +654,11 @@ class SyncService extends ChangeNotifier {
       final unsyncedContacts = await _contactRepository!.getUnsyncedContacts();
       final unsyncedCalls = await _phoneCallRepository!.getUnsyncedCalls();
       
-      debugPrint('🔍 Found ${unsyncedContacts.length} unsynced contacts');
-      debugPrint('🔍 Found ${unsyncedCalls.length} unsynced calls');
+      debugPrint('Found ${unsyncedContacts.length} unsynced contacts');
+      debugPrint('Found ${unsyncedCalls.length} unsynced calls');
       
       if (unsyncedContacts.isEmpty && unsyncedCalls.isEmpty) {
-        debugPrint('✅ All contacts and calls already synced to backend');
+        debugPrint('All contacts and calls already synced to backend');
         return;
       }
       
@@ -677,7 +677,7 @@ class SyncService extends ChangeNotifier {
               .take(batchSize)
               .toList();
           
-          debugPrint('📧 Syncing contacts batch: ${contactIndex + 1}-${contactIndex + contactBatch.length} of ${unsyncedContacts.length}');
+          debugPrint('Syncing contacts batch: ${contactIndex + 1}-${contactIndex + contactBatch.length} of ${unsyncedContacts.length}');
           
           for (int i = 0; i < contactBatch.length; i++) {
             final contact = contactBatch[i];
@@ -686,15 +686,15 @@ class SyncService extends ChangeNotifier {
               await _apiClient!.addContact(payload);
               await _contactRepository!.markAsSynced(contact.id);
               totalSynced++;
-              debugPrint('✅ Synced contact ${contactIndex + i + 1}/${unsyncedContacts.length}: ${contact.name}');
+              debugPrint('Synced contact ${contactIndex + i + 1}/${unsyncedContacts.length}: ${contact.name}');
               
               // Add 10 second delay between calls
               if (i < contactBatch.length - 1 || callIndex < unsyncedCalls.length) {
-                debugPrint('⏳ Waiting 10 seconds...');
+                debugPrint('Waiting 10 seconds...');
                 await Future.delayed(const Duration(seconds: 10));
               }
             } catch (e) {
-              debugPrint('⚠️ Failed to sync contact ${contact.name}: $e');
+              debugPrint('⚠Failed to sync contact ${contact.name}: $e');
               await Future.delayed(const Duration(seconds: 10));
             }
           }
@@ -709,7 +709,7 @@ class SyncService extends ChangeNotifier {
               .take(batchSize)
               .toList();
           
-          debugPrint('📞 Syncing calls batch: ${callIndex + 1}-${callIndex + callBatch.length} of ${unsyncedCalls.length}');
+          debugPrint('Syncing calls batch: ${callIndex + 1}-${callIndex + callBatch.length} of ${unsyncedCalls.length}');
           
           for (int i = 0; i < callBatch.length; i++) {
             final call = callBatch[i];
@@ -718,15 +718,15 @@ class SyncService extends ChangeNotifier {
               await _apiClient!.addPhoneCall(payload);
               await _phoneCallRepository!.markAsSynced(call.id);
               totalSynced++;
-              debugPrint('✅ Synced call ${callIndex + i + 1}/${unsyncedCalls.length}: ${call.callDirection} (${call.withContact ?? "Unknown"})');
+              debugPrint('Synced call ${callIndex + i + 1}/${unsyncedCalls.length}: ${call.callDirection} (${call.withContact ?? "Unknown"})');
               
               // Add 10 second delay between calls
               if (i < callBatch.length - 1 || contactIndex < unsyncedContacts.length) {
-                debugPrint('⏳ Waiting 10 seconds...');
+                debugPrint('Waiting 10 seconds...');
                 await Future.delayed(const Duration(seconds: 10));
               }
             } catch (e) {
-              debugPrint('⚠️ Failed to sync call ${call.id}: $e');
+              debugPrint('⚠Failed to sync call ${call.id}: $e');
               await Future.delayed(const Duration(seconds: 10));
             }
           }
@@ -735,7 +735,7 @@ class SyncService extends ChangeNotifier {
         }
       }
       
-      debugPrint('✅ Batch sync completed: $totalSynced items synced in total');
+      debugPrint('Batch sync completed: $totalSynced items synced in total');
       
       // Update last sync times
       if (contactIndex > 0) {
@@ -746,7 +746,7 @@ class SyncService extends ChangeNotifier {
       }
       
     } catch (e, stackTrace) {
-      debugPrint('❌ Error in batch sync: $e');
+      debugPrint('Error in batch sync: $e');
       debugPrint('Stack trace: $stackTrace');
     }
   }
@@ -757,7 +757,7 @@ class SyncService extends ChangeNotifier {
 
   /// Sync alarms with server (mock implementation)
   Future<void> _syncAlarms() async {
-    debugPrint('⏰ Syncing alarms...');
+    debugPrint('Syncing alarms...');
     
     // Simulate API call
     await Future.delayed(const Duration(milliseconds: 600));
@@ -773,7 +773,7 @@ class SyncService extends ChangeNotifier {
     //   body: jsonEncode({'alarms': alarms}),
     // );
 
-    debugPrint('✅ Alarms synced');
+    debugPrint('Alarms synced');
   }
 
   /// Get sync status message
@@ -806,12 +806,12 @@ class SyncService extends ChangeNotifier {
     try {
       // flutter_contacts handles permissions internally
       if (await FlutterContacts.requestPermission()) {
-        debugPrint('✅ Contacts permission granted! Fetching contacts...');
+        debugPrint('Contacts permission granted! Fetching contacts...');
         final contacts = await FlutterContacts.getContacts(
           withProperties: true,
           withPhoto: false,
         );
-        debugPrint('📱 Found ${contacts.length} contacts');
+        debugPrint('Found ${contacts.length} contacts');
         
         for (final contact in contacts) {
           contactsList.add({
@@ -822,12 +822,12 @@ class SyncService extends ChangeNotifier {
           });
         }
       } else {
-        debugPrint('⚠️ Contacts permission denied');
-        debugPrint('💡 Opening Settings to enable Contacts permission...');
+        debugPrint('⚠Contacts permission denied');
+        debugPrint('Opening Settings to enable Contacts permission...');
         await openAppSettings();
       }
     } catch (e, stackTrace) {
-      debugPrint('❌ Error fetching contacts: $e');
+      debugPrint('Error fetching contacts: $e');
       debugPrint('Stack trace: $stackTrace');
     }
     
@@ -843,25 +843,25 @@ class SyncService extends ChangeNotifier {
     
     // Call logs are only available on Android
     if (!Platform.isAndroid) {
-      debugPrint('ℹ️ Call logs are only available on Android');
+      debugPrint('ℹCall logs are only available on Android');
       return callLogsList;
     }
     
     try {
       var status = await Permission.phone.status;
-      debugPrint('📞 Phone permission INITIAL status: $status');
+      debugPrint('Phone permission INITIAL status: $status');
       
       if (!status.isGranted) {
-        debugPrint('📞 Requesting phone permission...');
+        debugPrint('Requesting phone permission...');
         status = await Permission.phone.request();
-        debugPrint('📞 Phone permission AFTER request: $status');
+        debugPrint('Phone permission AFTER request: $status');
       }
       
       if (status.isGranted) {
-        debugPrint('✅ Phone permission granted! Fetching call logs...');
+        debugPrint('Phone permission granted! Fetching call logs...');
         
         final Iterable<CallLogEntry> entries = await CallLog.get();
-        debugPrint('📞 Found ${entries.length} call log entries');
+        debugPrint('Found ${entries.length} call log entries');
         
         for (final entry in entries) {
           callLogsList.add({
@@ -873,14 +873,14 @@ class SyncService extends ChangeNotifier {
           });
         }
       } else {
-        debugPrint('⚠️ Phone permission denied');
+        debugPrint('⚠Phone permission denied');
         if (status.isPermanentlyDenied) {
-          debugPrint('💡 Opening Settings to enable Phone permission...');
+          debugPrint('Opening Settings to enable Phone permission...');
           await openAppSettings();
         }
       }
     } catch (e, stackTrace) {
-      debugPrint('❌ Error fetching call logs: $e');
+      debugPrint('Error fetching call logs: $e');
       debugPrint('Stack trace: $stackTrace');
     }
     
@@ -908,11 +908,11 @@ class SyncService extends ChangeNotifier {
         
         return topContacts;
       } else {
-        debugPrint('⚠️ Contacts permission denied');
+        debugPrint('⚠Contacts permission denied');
         return [];
       }
     } catch (e) {
-      debugPrint('❌ Error getting top contacts: $e');
+      debugPrint('Error getting top contacts: $e');
       return [];
     }
   }

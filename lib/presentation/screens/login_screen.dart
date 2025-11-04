@@ -47,16 +47,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     setState(() => _isLoading = true);
 
     try {
-      debugPrint('🔵 Attempting Google Sign-In...');
+      debugPrint('Attempting Google Sign-In...');
       final authService = context.read<AuthService>();
       final success = await authService.signIn();
 
-      debugPrint('🔵 Sign-in result: $success');
+      debugPrint('Sign-in result: $success');
 
       if (!mounted) return;
 
       if (success) {
-        debugPrint('✅ Sign-in successful, navigating to sync setup');
+        debugPrint('Sign-in successful, navigating to sync setup');
         // Navigate to sync setup screen
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
@@ -64,7 +64,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
         );
       } else {
-        debugPrint('❌ Sign-in failed');
+        debugPrint('Sign-in failed');
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -75,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         );
       }
     } catch (e) {
-      debugPrint('❌ Sign-in error: $e');
+      debugPrint('Sign-in error: $e');
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(

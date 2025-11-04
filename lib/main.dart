@@ -35,10 +35,10 @@ void main() async {
       await Workmanager().initialize(
         callbackDispatcher, // Import from sync_service.dart - runs in background isolate
       );
-      debugPrint('✅ Workmanager initialized - background sync ready');
-      debugPrint('📱 App can now sync data even when completely closed');
+      debugPrint('Workmanager initialized - background sync ready');
+      debugPrint('App can now sync data even when completely closed');
     } catch (e) {
-      debugPrint('❌ Failed to initialize Workmanager: $e');
+      debugPrint('Failed to initialize Workmanager: $e');
     }
   }
   

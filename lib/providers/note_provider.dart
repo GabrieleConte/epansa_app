@@ -36,7 +36,7 @@ class NoteProvider extends ChangeNotifier {
       _notes = await _noteRepository.getAllNotes();
     } catch (e) {
       _error = 'Failed to load notes: $e';
-      debugPrint('❌ Error loading notes: $e');
+      debugPrint('Error loading notes: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -71,7 +71,7 @@ class NoteProvider extends ChangeNotifier {
       return note;
     } catch (e) {
       _error = 'Failed to create note: $e';
-      debugPrint('❌ Error creating note: $e');
+      debugPrint('Error creating note: $e');
       notifyListeners();
       return null;
     }
@@ -98,7 +98,7 @@ class NoteProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _error = 'Failed to update note: $e';
-      debugPrint('❌ Error updating note: $e');
+      debugPrint('Error updating note: $e');
       notifyListeners();
       return false;
     }
@@ -119,7 +119,7 @@ class NoteProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       _error = 'Failed to delete note: $e';
-      debugPrint('❌ Error deleting note: $e');
+      debugPrint('Error deleting note: $e');
       notifyListeners();
       return false;
     }
@@ -140,9 +140,9 @@ class NoteProvider extends ChangeNotifier {
       // Mark as synced
       await _noteRepository.markAsSynced(note.id);
       
-      debugPrint('✅ Note synced to backend: ${note.id}');
+      debugPrint('Note synced to backend: ${note.id}');
     } catch (e) {
-      debugPrint('❌ Error syncing note to backend: $e');
+      debugPrint('Error syncing note to backend: $e');
       // Don't rethrow - we want to keep the note locally even if sync fails
     }
   }

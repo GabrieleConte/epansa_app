@@ -42,7 +42,7 @@ class AlarmProvider extends ChangeNotifier {
       });
     } catch (e) {
       _error = 'Failed to load alarms: $e';
-      debugPrint('❌ Error loading alarms: $e');
+      debugPrint('Error loading alarms: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -91,11 +91,11 @@ class AlarmProvider extends ChangeNotifier {
       // Reload alarms
       await loadAlarms();
       
-      debugPrint('✅ Alarm created: ${alarm.formattedTime} - $label');
+      debugPrint('Alarm created: ${alarm.formattedTime} - $label');
       return true;
     } catch (e) {
       _error = 'Failed to create alarm: $e';
-      debugPrint('❌ Error creating alarm: $e');
+      debugPrint('Error creating alarm: $e');
       notifyListeners();
       return false;
     }
@@ -119,7 +119,7 @@ class AlarmProvider extends ChangeNotifier {
         await _setSystemAlarm(alarm);
       } else {
         // TODO: Cancel system alarm (not currently supported)
-        debugPrint('⚠️ Alarm disabled but system alarm cancellation not implemented');
+        debugPrint('⚠Alarm disabled but system alarm cancellation not implemented');
       }
 
       // Notify backend
@@ -128,11 +128,11 @@ class AlarmProvider extends ChangeNotifier {
       // Reload alarms
       await loadAlarms();
       
-      debugPrint('✅ Alarm updated: ${alarm.formattedTime} - ${alarm.label}');
+      debugPrint('Alarm updated: ${alarm.formattedTime} - ${alarm.label}');
       return true;
     } catch (e) {
       _error = 'Failed to update alarm: $e';
-      debugPrint('❌ Error updating alarm: $e');
+      debugPrint('Error updating alarm: $e');
       notifyListeners();
       return false;
     }
@@ -154,7 +154,7 @@ class AlarmProvider extends ChangeNotifier {
       }
 
       // TODO: Cancel system alarm (not currently supported)
-      debugPrint('⚠️ System alarm cancellation not implemented');
+      debugPrint('⚠System alarm cancellation not implemented');
 
       // Notify backend
       await _notifyBackend(alarm, 'deleted');
@@ -162,11 +162,11 @@ class AlarmProvider extends ChangeNotifier {
       // Reload alarms
       await loadAlarms();
       
-      debugPrint('✅ Alarm deleted: ${alarm.formattedTime}');
+      debugPrint('Alarm deleted: ${alarm.formattedTime}');
       return true;
     } catch (e) {
       _error = 'Failed to delete alarm: $e';
-      debugPrint('❌ Error deleting alarm: $e');
+      debugPrint('Error deleting alarm: $e');
       notifyListeners();
       return false;
     }
@@ -194,7 +194,7 @@ class AlarmProvider extends ChangeNotifier {
         await _setSystemAlarm(updatedAlarm);
       } else {
         // TODO: Cancel system alarm
-        debugPrint('⚠️ System alarm cancellation not implemented');
+        debugPrint('⚠System alarm cancellation not implemented');
       }
 
       // Notify backend
@@ -203,11 +203,11 @@ class AlarmProvider extends ChangeNotifier {
       // Reload alarms
       await loadAlarms();
       
-      debugPrint('✅ Alarm toggled: ${alarm.formattedTime} -> $newEnabled');
+      debugPrint('Alarm toggled: ${alarm.formattedTime} -> $newEnabled');
       return true;
     } catch (e) {
       _error = 'Failed to toggle alarm: $e';
-      debugPrint('❌ Error toggling alarm: $e');
+      debugPrint('Error toggling alarm: $e');
       notifyListeners();
       return false;
     }
@@ -237,9 +237,9 @@ class AlarmProvider extends ChangeNotifier {
         skipUi: true,
       );
 
-      debugPrint('✅ System alarm set: ${alarm.formattedTime}');
+      debugPrint('System alarm set: ${alarm.formattedTime}');
     } catch (e) {
-      debugPrint('❌ Failed to set system alarm: $e');
+      debugPrint('Failed to set system alarm: $e');
       // Don't throw - alarm is saved even if system alarm fails
     }
   }
@@ -265,12 +265,12 @@ class AlarmProvider extends ChangeNotifier {
           await _apiClient.deleteAlarm(alarm.id);
           break;
         default:
-          debugPrint('⚠️ Unknown action: $action');
+          debugPrint('⚠Unknown action: $action');
       }
       
-      debugPrint('✅ Backend sync complete: $action alarm');
+      debugPrint('Backend sync complete: $action alarm');
     } catch (e) {
-      debugPrint('⚠️ Failed to sync alarm to backend: $e');
+      debugPrint('⚠Failed to sync alarm to backend: $e');
       // Don't throw - local alarm is still valid even if backend sync fails
     }
   }

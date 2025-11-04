@@ -20,14 +20,14 @@ class AlarmService extends ChangeNotifier {
   Future<void> initialize() async {
     if (_isInitialized) return;
 
-    debugPrint('🔔 Initializing alarm service...');
+    debugPrint('Initializing alarm service...');
 
     try {
       // Initialize timezone data for scheduled notifications
       tz.initializeTimeZones();
       
       if (Platform.isAndroid) {
-        debugPrint('📱 Android: Using flutter_alarm_clock');
+        debugPrint('Android: Using flutter_alarm_clock');
         await _checkAndroidPermissions();
       } else if (Platform.isIOS) {
         debugPrint('🍎 iOS: Using local notifications for alarms');
@@ -35,9 +35,9 @@ class AlarmService extends ChangeNotifier {
       }
 
       _isInitialized = true;
-      debugPrint('✅ Alarm service initialized successfully');
+      debugPrint('Alarm service initialized successfully');
     } catch (e) {
-      debugPrint('❌ Failed to initialize alarm service: $e');
+      debugPrint('Failed to initialize alarm service: $e');
     }
   }
 
@@ -74,14 +74,14 @@ class AlarmService extends ChangeNotifier {
     try {
       // Check schedule exact alarm permission (Android 12+)
       final scheduleAlarmStatus = await Permission.scheduleExactAlarm.status;
-      debugPrint('📅 Schedule exact alarm permission: $scheduleAlarmStatus');
+      debugPrint('Schedule exact alarm permission: $scheduleAlarmStatus');
       
       if (scheduleAlarmStatus.isDenied) {
-        debugPrint('📱 Requesting schedule exact alarm permission...');
+        debugPrint('Requesting schedule exact alarm permission...');
         await Permission.scheduleExactAlarm.request();
       }
     } catch (e) {
-      debugPrint('⚠️ Error checking Android permissions: $e');
+      debugPrint('⚠Error checking Android permissions: $e');
     }
   }
 
@@ -96,7 +96,7 @@ class AlarmService extends ChangeNotifier {
     bool skipUi = true, // Default to true to avoid opening Clock app
   }) async {
     try {
-      debugPrint('🔔 Creating alarm: $label at ${time.hour}:${time.minute}');
+      debugPrint('Creating alarm: $label at ${time.hour}:${time.minute}');
 
       if (Platform.isAndroid) {
         // Android: Use flutter_alarm_clock to open system Clock app
@@ -106,7 +106,7 @@ class AlarmService extends ChangeNotifier {
           title: label,
           skipUi: skipUi,
         );
-        debugPrint('✅ Android alarm created - Clock app will open');
+        debugPrint('Android alarm created - Clock app will open');
         return true;
       } else if (Platform.isIOS) {
         // iOS: Create scheduled notification
@@ -119,7 +119,7 @@ class AlarmService extends ChangeNotifier {
 
       return false;
     } catch (e, stackTrace) {
-      debugPrint('❌ Failed to create alarm: $e');
+      debugPrint('Failed to create alarm: $e');
       debugPrint('Stack trace: $stackTrace');
       return false;
     }
@@ -133,7 +133,7 @@ class AlarmService extends ChangeNotifier {
   }) async {
     try {
       if (_notificationsPlugin == null) {
-        debugPrint('❌ Notifications not initialized');
+        debugPrint('Notifications not initialized');
         return false;
       }
 
@@ -195,11 +195,11 @@ class AlarmService extends ChangeNotifier {
             UILocalNotificationDateInterpretation.absoluteTime,
       );
 
-      debugPrint('✅ iOS notification alarm scheduled for ${scheduledDate.toString()}');
+      debugPrint('iOS notification alarm scheduled for ${scheduledDate.toString()}');
       debugPrint('🧪 TEST MODE: Notification will fire in 10 seconds');
       return true;
     } catch (e) {
-      debugPrint('❌ Failed to create iOS notification alarm: $e');
+      debugPrint('Failed to create iOS notification alarm: $e');
       return false;
     }
   }
@@ -209,15 +209,15 @@ class AlarmService extends ChangeNotifier {
   Future<void> showAlarms() async {
     try {
       if (!Platform.isAndroid) {
-        debugPrint('❌ Show alarms only supported on Android');
+        debugPrint('Show alarms only supported on Android');
         return;
       }
 
-      debugPrint('📱 Opening system alarms...');
+      debugPrint('Opening system alarms...');
       FlutterAlarmClock.showAlarms();
-      debugPrint('✅ System alarms screen opened');
+      debugPrint('System alarms screen opened');
     } catch (e) {
-      debugPrint('❌ Failed to show alarms: $e');
+      debugPrint('Failed to show alarms: $e');
     }
   }
 
@@ -230,11 +230,11 @@ class AlarmService extends ChangeNotifier {
   }) async {
     try {
       if (!Platform.isAndroid) {
-        debugPrint('❌ Timer creation only supported on Android');
+        debugPrint('Timer creation only supported on Android');
         return;
       }
 
-      debugPrint('⏱️ Creating timer: $seconds seconds');
+      debugPrint('⏱Creating timer: $seconds seconds');
       
       FlutterAlarmClock.createTimer(
         length: seconds,
@@ -242,9 +242,9 @@ class AlarmService extends ChangeNotifier {
         skipUi: skipUi,
       );
 
-      debugPrint('✅ Timer created successfully');
+      debugPrint('Timer created successfully');
     } catch (e) {
-      debugPrint('❌ Failed to create timer: $e');
+      debugPrint('Failed to create timer: $e');
     }
   }
 
@@ -252,15 +252,15 @@ class AlarmService extends ChangeNotifier {
   Future<void> showTimers() async {
     try {
       if (!Platform.isAndroid) {
-        debugPrint('❌ Show timers only supported on Android');
+        debugPrint('Show timers only supported on Android');
         return;
       }
 
-      debugPrint('📱 Opening system timers...');
+      debugPrint('Opening system timers...');
       FlutterAlarmClock.showTimers();
-      debugPrint('✅ System timers screen opened');
+      debugPrint('System timers screen opened');
     } catch (e) {
-      debugPrint('❌ Failed to show timers: $e');
+      debugPrint('Failed to show timers: $e');
     }
   }
 
@@ -278,7 +278,7 @@ class AlarmService extends ChangeNotifier {
       final status = await Permission.scheduleExactAlarm.status;
       return status.isGranted;
     } catch (e) {
-      debugPrint('⚠️ Error checking schedule exact alarm permission: $e');
+      debugPrint('⚠Error checking schedule exact alarm permission: $e');
       return false;
     }
   }
@@ -287,16 +287,16 @@ class AlarmService extends ChangeNotifier {
   /// Note: flutter_alarm_clock doesn't provide a way to read existing alarms
   /// This method returns an empty list as we can't access system alarms
   Future<List<Map<String, dynamic>>> getAllAlarmsForSync() async {
-    debugPrint('⚠️ flutter_alarm_clock cannot read existing system alarms');
-    debugPrint('💡 Only alarm creation is supported, not reading');
+    debugPrint('⚠flutter_alarm_clock cannot read existing system alarms');
+    debugPrint('Only alarm creation is supported, not reading');
     return [];
   }
 
   /// Fetch alarms from device
   /// Note: Not possible with flutter_alarm_clock package
   Future<List<Map<String, dynamic>>> fetchDeviceAlarms() async {
-    debugPrint('⚠️ Cannot fetch device alarms with flutter_alarm_clock');
-    debugPrint('💡 This package only supports creating alarms, not reading them');
+    debugPrint('⚠Cannot fetch device alarms with flutter_alarm_clock');
+    debugPrint('This package only supports creating alarms, not reading them');
     return [];
   }
 

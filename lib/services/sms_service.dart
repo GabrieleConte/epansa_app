@@ -20,10 +20,10 @@ class SmsService extends ChangeNotifier {
   Future<void> initialize() async {
     if (_isInitialized) return;
 
-    debugPrint('📱 Initializing SMS service...');
+    debugPrint('Initializing SMS service...');
 
     if (!Platform.isAndroid) {
-      debugPrint('⚠️ SMS service is only supported on Android');
+      debugPrint('⚠SMS service is only supported on Android');
       _isInitialized = true;
       return;
     }
@@ -32,13 +32,13 @@ class SmsService extends ChangeNotifier {
       // Check SMS permission status
       final smsStatus = await Permission.sms.status;
       _hasPermission = smsStatus.isGranted;
-      debugPrint('📊 Initial SMS permission status: $smsStatus');
+      debugPrint('Initial SMS permission status: $smsStatus');
 
       _isInitialized = true;
-      debugPrint('✅ SMS service initialized successfully');
+      debugPrint('SMS service initialized successfully');
       notifyListeners();
     } catch (e) {
-      debugPrint('❌ Failed to initialize SMS service: $e');
+      debugPrint('Failed to initialize SMS service: $e');
       _isInitialized = true;
     }
   }
@@ -46,46 +46,46 @@ class SmsService extends ChangeNotifier {
   /// Check and request SMS permissions (Android only)
   Future<void> _checkSmsPermissions() async {
     if (!Platform.isAndroid) {
-      debugPrint('⚠️ SMS permissions not available on iOS');
+      debugPrint('⚠SMS permissions not available on iOS');
       return;
     }
 
     if (_isRequestingPermission) {
-      debugPrint('⏳ Permission request already in progress, skipping...');
+      debugPrint('Permission request already in progress, skipping...');
       return;
     }
 
     try {
       _isRequestingPermission = true;
-      debugPrint('📱 Checking SMS permissions...');
+      debugPrint('Checking SMS permissions...');
 
       final smsStatus = await Permission.sms.status;
-      debugPrint('📊 SMS permission status: $smsStatus');
+      debugPrint('SMS permission status: $smsStatus');
 
       if (!smsStatus.isGranted) {
-        debugPrint('🔐 Requesting SMS permission...');
+        debugPrint('Requesting SMS permission...');
         
         final result = await Permission.sms.request();
         _hasPermission = result.isGranted;
         
-        debugPrint('📊 Permission after request: $_hasPermission');
+        debugPrint('Permission after request: $_hasPermission');
         
         if (result.isPermanentlyDenied) {
-          debugPrint('⚠️ SMS permission permanently denied, opening settings...');
+          debugPrint('⚠SMS permission permanently denied, opening settings...');
           await openAppSettings();
         } else if (!_hasPermission) {
-          debugPrint('⚠️ SMS permission denied');
+          debugPrint('⚠SMS permission denied');
         } else {
-          debugPrint('✅ SMS permission granted');
+          debugPrint('SMS permission granted');
         }
       } else {
         _hasPermission = true;
-        debugPrint('✅ SMS permission already granted');
+        debugPrint('SMS permission already granted');
       }
 
       notifyListeners();
     } catch (e, stackTrace) {
-      debugPrint('❌ Error checking/requesting SMS permissions: $e');
+      debugPrint('Error checking/requesting SMS permissions: $e');
       debugPrint('Stack trace: $stackTrace');
       _hasPermission = false;
     } finally {
@@ -96,17 +96,17 @@ class SmsService extends ChangeNotifier {
   /// Check if SMS permission is granted
   Future<bool> hasSmsPermission() async {
     if (!Platform.isAndroid) {
-      debugPrint('⚠️ SMS not supported on iOS');
+      debugPrint('⚠SMS not supported on iOS');
       return false;
     }
 
     try {
       final status = await Permission.sms.status;
       _hasPermission = status.isGranted;
-      debugPrint('📊 Current SMS permission status: $status');
+      debugPrint('Current SMS permission status: $status');
       return _hasPermission;
     } catch (e) {
-      debugPrint('❌ Error checking SMS permission: $e');
+      debugPrint('Error checking SMS permission: $e');
       return false;
     }
   }
@@ -117,31 +117,31 @@ class SmsService extends ChangeNotifier {
     required String message,
   }) async {
     try {
-      debugPrint('🚀 ===== SEND SMS CALLED ===== 🚀');
-      debugPrint('📱 Phone number: $phoneNumber');
-      debugPrint('📱 Message: $message');
+      debugPrint('🚀 ===== SEND SMS CALLED ===== ');
+      debugPrint('Phone number: $phoneNumber');
+      debugPrint('Message: $message');
 
       if (!Platform.isAndroid) {
-        debugPrint('❌ SMS sending not supported on iOS');
+        debugPrint('SMS sending not supported on iOS');
         return false;
       }
 
       // Check permission
       final hasPerm = await hasSmsPermission();
-      debugPrint('📊 Has SMS permission: $hasPerm');
+      debugPrint('Has SMS permission: $hasPerm');
 
       if (!hasPerm) {
-        debugPrint('⚠️ No SMS permission, requesting...');
+        debugPrint('⚠No SMS permission, requesting...');
         await _checkSmsPermissions();
         
         final hasPermAfterRequest = await hasSmsPermission();
         if (!hasPermAfterRequest) {
-          debugPrint('❌ SMS permission denied');
+          debugPrint('SMS permission denied');
           return false;
         }
       }
 
-      debugPrint('📱 Sending SMS to $phoneNumber...');
+      debugPrint('Sending SMS to $phoneNumber...');
 
       try {
         final bool result = await _channel.invokeMethod('sendSms', {
@@ -150,20 +150,20 @@ class SmsService extends ChangeNotifier {
         });
 
         if (result) {
-          debugPrint('✅ SMS sent successfully');
+          debugPrint('SMS sent successfully');
           notifyListeners();
           return true;
         } else {
-          debugPrint('❌ Failed to send SMS');
+          debugPrint('Failed to send SMS');
           return false;
         }
       } catch (e, stackTrace) {
-        debugPrint('❌ Exception while sending SMS: $e');
+        debugPrint('Exception while sending SMS: $e');
         debugPrint('Stack trace: $stackTrace');
         return false;
       }
     } catch (e, stackTrace) {
-      debugPrint('❌ Error in sendSms: $e');
+      debugPrint('Error in sendSms: $e');
       debugPrint('Stack trace: $stackTrace');
       return false;
     }
@@ -175,22 +175,22 @@ class SmsService extends ChangeNotifier {
     String? phoneNumber,
   }) async {
     try {
-      debugPrint('📱 Reading SMS messages...');
+      debugPrint('Reading SMS messages...');
 
       if (!Platform.isAndroid) {
-        debugPrint('❌ SMS reading not supported on iOS');
+        debugPrint('SMS reading not supported on iOS');
         return [];
       }
 
       // Check if we need read SMS permission
       final readSmsStatus = await Permission.sms.status;
       if (!readSmsStatus.isGranted) {
-        debugPrint('⚠️ No SMS read permission');
+        debugPrint('⚠No SMS read permission');
         await _checkSmsPermissions();
         
         final hasPermAfterRequest = await Permission.sms.status;
         if (!hasPermAfterRequest.isGranted) {
-          debugPrint('❌ SMS read permission denied');
+          debugPrint('SMS read permission denied');
           return [];
         }
       }
@@ -202,20 +202,20 @@ class SmsService extends ChangeNotifier {
         });
 
         if (result == null) {
-          debugPrint('⚠️ No SMS messages found');
+          debugPrint('⚠No SMS messages found');
           return [];
         }
 
         final messages = result.map((msg) => SmsMessage.fromMap(msg)).toList();
-        debugPrint('✅ Retrieved ${messages.length} SMS messages');
+        debugPrint('Retrieved ${messages.length} SMS messages');
         return messages;
       } catch (e, stackTrace) {
-        debugPrint('❌ Exception while reading SMS: $e');
+        debugPrint('Exception while reading SMS: $e');
         debugPrint('Stack trace: $stackTrace');
         return [];
       }
     } catch (e, stackTrace) {
-      debugPrint('❌ Error in readSms: $e');
+      debugPrint('Error in readSms: $e');
       debugPrint('Stack trace: $stackTrace');
       return [];
     }

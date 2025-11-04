@@ -27,9 +27,9 @@ class _SyncSetupScreenState extends State<SyncSetupScreen> {
       final alarmService = context.read<AlarmService>();
       // This will trigger the iOS permission dialog if not already granted
       await alarmService.hasNotificationPermission();
-      debugPrint('✅ Notification permissions checked on sync setup');
+      debugPrint('Notification permissions checked on sync setup');
     } catch (e) {
-      debugPrint('⚠️ Error checking notification permissions: $e');
+      debugPrint('⚠Error checking notification permissions: $e');
     }
   }
 

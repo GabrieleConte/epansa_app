@@ -403,7 +403,7 @@ class ChatProvider extends ChangeNotifier {
           }
         }
       } else if (action.type == ActionType.createEvent && _calendarEventService != null) {
-        debugPrint('🔵 ChatProvider: Creating calendar event...');
+        debugPrint('ChatProvider: Creating calendar event...');
         
         // Create calendar event for today
         // The createEvent method will handle permission requests internally
@@ -411,7 +411,7 @@ class ChatProvider extends ChangeNotifier {
         final startTime = DateTime(now.year, now.month, now.day, 14, 0); // 2 PM today
         final endTime = startTime.add(const Duration(hours: 1)); // 1 hour duration
         
-        debugPrint('🔵 ChatProvider: Calling createEvent...');
+        debugPrint('ChatProvider: Calling createEvent...');
         final eventId = await _calendarEventService.createEvent(
           title: 'EPANSA Meeting',
           description: 'Meeting created by EPANSA assistant',
@@ -419,7 +419,7 @@ class ChatProvider extends ChangeNotifier {
           endTime: endTime,
           location: 'Office',
         );
-        debugPrint('🔵 ChatProvider: createEvent returned: $eventId');
+        debugPrint('ChatProvider: createEvent returned: $eventId');
         
         success = eventId != null;
         
@@ -446,7 +446,7 @@ class ChatProvider extends ChangeNotifier {
           }
         }
       } else if (action.type == ActionType.sendSms && _smsService != null) {
-        debugPrint('🔵 ChatProvider: Sending SMS...');
+        debugPrint('ChatProvider: Sending SMS...');
         
         // Check if platform supports SMS
         if (!_smsService.isSupported) {
@@ -459,12 +459,12 @@ class ChatProvider extends ChangeNotifier {
           final phoneNumber = action.parameters['phoneNumber'] as String? ?? '+1234567890';
           final message = action.parameters['message'] as String? ?? 'Test message from EPANSA';
           
-          debugPrint('🔵 ChatProvider: Calling sendSms...');
+          debugPrint('ChatProvider: Calling sendSms...');
           success = await _smsService.sendSms(
             phoneNumber: phoneNumber,
             message: message,
           );
-          debugPrint('🔵 ChatProvider: sendSms returned: $success');
+          debugPrint('ChatProvider: sendSms returned: $success');
           
           if (success) {
             resultMessage = '✅ SMS sent successfully! 📱\n\n'
@@ -488,7 +488,7 @@ class ChatProvider extends ChangeNotifier {
           }
         }
       } else if (action.type == ActionType.makeCall && _callService != null) {
-        debugPrint('🔵 ChatProvider: Making call...');
+        debugPrint('ChatProvider: Making call...');
         
         // Check if platform supports calls
         if (!_callService.isSupported) {
@@ -498,11 +498,11 @@ class ChatProvider extends ChangeNotifier {
           // Extract phone number from parameters
           final phoneNumber = action.parameters['phoneNumber'] as String? ?? '+1234567890';
           
-          debugPrint('🔵 ChatProvider: Calling makeCall...');
+          debugPrint('ChatProvider: Calling makeCall...');
           success = await _callService.makeCall(
             phoneNumber: phoneNumber,
           );
-          debugPrint('🔵 ChatProvider: makeCall returned: $success');
+          debugPrint('ChatProvider: makeCall returned: $success');
           
           if (success) {
             resultMessage = '✅ Phone call initiated! 📞\n\n'
@@ -531,7 +531,7 @@ class ChatProvider extends ChangeNotifier {
         resultMessage = 'Successfully completed the ${_getActionName(action.type)}!';
       }
     } catch (e) {
-      debugPrint('❌ Error executing action: $e');
+      debugPrint('Error executing action: $e');
       success = false;
       resultMessage = 'Failed to execute action: $e';
     }

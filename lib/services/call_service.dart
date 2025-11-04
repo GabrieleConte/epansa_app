@@ -18,28 +18,28 @@ class CallService extends ChangeNotifier {
   Future<void> initialize() async {
     if (_isInitialized) return;
 
-    debugPrint('📞 Initializing call service...');
+    debugPrint('Initializing call service...');
 
     try {
       if (Platform.isAndroid) {
         // Check phone permission status on Android
         final phoneStatus = await Permission.phone.status;
         _hasPermission = phoneStatus.isGranted;
-        debugPrint('📊 Initial phone permission status: $phoneStatus');
+        debugPrint('Initial phone permission status: $phoneStatus');
       } else if (Platform.isIOS) {
         // iOS doesn't require explicit permission for tel: URLs
         // The system will handle the call confirmation
         _hasPermission = true;
-        debugPrint('📊 iOS: Phone calls handled by system');
+        debugPrint('iOS: Phone calls handled by system');
       } else {
-        debugPrint('⚠️ Call service not supported on this platform');
+        debugPrint('⚠Call service not supported on this platform');
       }
 
       _isInitialized = true;
-      debugPrint('✅ Call service initialized successfully');
+      debugPrint('Call service initialized successfully');
       notifyListeners();
     } catch (e) {
-      debugPrint('❌ Failed to initialize call service: $e');
+      debugPrint('Failed to initialize call service: $e');
       _isInitialized = true;
     }
   }
@@ -53,41 +53,41 @@ class CallService extends ChangeNotifier {
     }
 
     if (_isRequestingPermission) {
-      debugPrint('⏳ Permission request already in progress, skipping...');
+      debugPrint('Permission request already in progress, skipping...');
       return;
     }
 
     try {
       _isRequestingPermission = true;
-      debugPrint('📱 Checking phone permissions...');
+      debugPrint('Checking phone permissions...');
 
       final phoneStatus = await Permission.phone.status;
-      debugPrint('📊 Phone permission status: $phoneStatus');
+      debugPrint('Phone permission status: $phoneStatus');
 
       if (!phoneStatus.isGranted) {
-        debugPrint('🔐 Requesting phone permission...');
+        debugPrint('Requesting phone permission...');
         
         final result = await Permission.phone.request();
         _hasPermission = result.isGranted;
         
-        debugPrint('📊 Permission after request: $_hasPermission');
+        debugPrint('Permission after request: $_hasPermission');
         
         if (result.isPermanentlyDenied) {
-          debugPrint('⚠️ Phone permission permanently denied, opening settings...');
+          debugPrint('⚠Phone permission permanently denied, opening settings...');
           await openAppSettings();
         } else if (!_hasPermission) {
-          debugPrint('⚠️ Phone permission denied');
+          debugPrint('⚠Phone permission denied');
         } else {
-          debugPrint('✅ Phone permission granted');
+          debugPrint('Phone permission granted');
         }
       } else {
         _hasPermission = true;
-        debugPrint('✅ Phone permission already granted');
+        debugPrint('Phone permission already granted');
       }
 
       notifyListeners();
     } catch (e, stackTrace) {
-      debugPrint('❌ Error checking/requesting phone permissions: $e');
+      debugPrint('Error checking/requesting phone permissions: $e');
       debugPrint('Stack trace: $stackTrace');
       _hasPermission = false;
     } finally {
@@ -99,22 +99,22 @@ class CallService extends ChangeNotifier {
   Future<bool> hasPhonePermission() async {
     if (Platform.isIOS) {
       // iOS doesn't require explicit permission
-      debugPrint('📊 iOS: Phone calls allowed by system');
+      debugPrint('iOS: Phone calls allowed by system');
       return true;
     }
 
     if (!Platform.isAndroid) {
-      debugPrint('⚠️ Phone calls not supported on this platform');
+      debugPrint('⚠Phone calls not supported on this platform');
       return false;
     }
 
     try {
       final status = await Permission.phone.status;
       _hasPermission = status.isGranted;
-      debugPrint('📊 Current phone permission status: $status');
+      debugPrint('Current phone permission status: $status');
       return _hasPermission;
     } catch (e) {
-      debugPrint('❌ Error checking phone permission: $e');
+      debugPrint('Error checking phone permission: $e');
       return false;
     }
   }
@@ -124,26 +124,26 @@ class CallService extends ChangeNotifier {
     required String phoneNumber,
   }) async {
     try {
-      debugPrint('🚀 ===== MAKE CALL CALLED ===== 🚀');
-      debugPrint('📞 Phone number: $phoneNumber');
+      debugPrint('🚀 ===== MAKE CALL CALLED ===== ');
+      debugPrint('Phone number: $phoneNumber');
 
       if (!Platform.isAndroid && !Platform.isIOS) {
-        debugPrint('❌ Phone calls not supported on this platform');
+        debugPrint('Phone calls not supported on this platform');
         return false;
       }
 
       // Check permission (Android only)
       if (Platform.isAndroid) {
         final hasPerm = await hasPhonePermission();
-        debugPrint('📊 Has phone permission: $hasPerm');
+        debugPrint('Has phone permission: $hasPerm');
 
         if (!hasPerm) {
-          debugPrint('⚠️ No phone permission, requesting...');
+          debugPrint('⚠No phone permission, requesting...');
           await _checkPhonePermissions();
           
           final hasPermAfterRequest = await hasPhonePermission();
           if (!hasPermAfterRequest) {
-            debugPrint('❌ Phone permission denied');
+            debugPrint('Phone permission denied');
             return false;
           }
         }
@@ -151,7 +151,7 @@ class CallService extends ChangeNotifier {
 
       // Clean phone number (remove spaces, dashes, etc.)
       final cleanNumber = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
-      debugPrint('📞 Making call to: $cleanNumber');
+      debugPrint('Making call to: $cleanNumber');
 
       try {
         final Uri telUri = Uri.parse('tel:$cleanNumber');
@@ -160,7 +160,7 @@ class CallService extends ChangeNotifier {
         final bool canLaunch = await canLaunchUrl(telUri);
         
         if (!canLaunch) {
-          debugPrint('❌ Device cannot handle tel: URLs');
+          debugPrint('Device cannot handle tel: URLs');
           return false;
         }
 
@@ -168,20 +168,20 @@ class CallService extends ChangeNotifier {
         final bool launched = await launchUrl(telUri);
 
         if (launched) {
-          debugPrint('✅ Phone call initiated successfully');
+          debugPrint('Phone call initiated successfully');
           notifyListeners();
           return true;
         } else {
-          debugPrint('❌ Failed to launch phone dialer');
+          debugPrint('Failed to launch phone dialer');
           return false;
         }
       } catch (e, stackTrace) {
-        debugPrint('❌ Exception while making call: $e');
+        debugPrint('Exception while making call: $e');
         debugPrint('Stack trace: $stackTrace');
         return false;
       }
     } catch (e, stackTrace) {
-      debugPrint('❌ Error in makeCall: $e');
+      debugPrint('Error in makeCall: $e');
       debugPrint('Stack trace: $stackTrace');
       return false;
     }
