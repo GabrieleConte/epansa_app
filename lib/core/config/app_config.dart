@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Application configuration
@@ -23,8 +24,8 @@ class AppConfig {
       await dotenv.load(fileName: '.env');
       _initialized = true;
     } catch (e) {
-      print('Warning: Could not load .env file: $e');
-      print('Using default configuration values');
+      debugPrint('Warning: Could not load .env file: $e');
+      debugPrint('Using default configuration values');
     }
   }
 
@@ -141,23 +142,23 @@ class AppConfig {
 
   /// Print configuration status (for debugging)
   static void printStatus() {
-    print('═══════════════════════════════════════');
-    print('EPANSA App Configuration Status');
-    print('═══════════════════════════════════════');
-    print('Environment: $environment');
-    print('Debug Mode: $debugMode');
-    print('Configured: ${isConfigured ? "✓ YES" : "✗ NO"}');
+    debugPrint('═══════════════════════════════════════');
+    debugPrint('EPANSA App Configuration Status');
+    debugPrint('═══════════════════════════════════════');
+    debugPrint('Environment: $environment');
+    debugPrint('Debug Mode: $debugMode');
+    debugPrint('Configured: ${isConfigured ? "✓ YES" : "✗ NO"}');
     
     if (!isConfigured) {
-      print('\nMissing Configuration:');
+      debugPrint('\nMissing Configuration:');
       for (final key in missingConfiguration) {
-        print('  ✗ $key');
+        debugPrint('  ✗ $key');
       }
-      print('\nPlease update your .env file or pass');
-      print('--dart-define flags when building.');
+      debugPrint('\nPlease update your .env file or pass');
+      debugPrint('--dart-define flags when building.');
     } else {
-      print('All required configuration keys are set ✓');
+      debugPrint('All required configuration keys are set ✓');
     }
-    print('═══════════════════════════════════════');
+    debugPrint('═══════════════════════════════════════');
   }
 }

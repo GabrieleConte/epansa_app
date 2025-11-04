@@ -5,25 +5,15 @@ EPANSA is a Flutter mobile app implementing an AI-powered personal assistant. Th
 
 **Key Architecture**: Client-server model where the mobile app is the UI/execution layer and the remote agent is the intelligence layer.
 
-## Project State: Active Development
+## Project State: Implemented Features
 - ✅ **Authentication**: Google Sign-In implemented and working
 - ✅ **Chat UI**: Basic chat interface with message display
 - ✅ **Services Layer**: AlarmService, SMSService, CallService, CalendarEventService, SyncService
 - ✅ **Background Sync**: WorkManager (Android) + Background Fetch (iOS) - syncs even when app closed
 - ✅ **Platform Channels**: SMS sending (Android), native integrations ready
 - ✅ **Permissions**: Contacts, Calendar, SMS, Phone, Notifications all handled
-- ⚠️ **Using Mock Data**: Agent API responses are currently mocked (see Critical TODOs)
-- ⚠️ **Manual Alarm Input**: No UI for users to manually create/manage alarms yet
 
-## Planned Architecture (Not Yet Implemented)
-Based on README.md, the app will need:
 
-1. ~~**Authentication Layer**: Google OAuth integration to send tokens to remote agent~~ ✅ DONE
-2. **API Client**: HTTP communication with remote agent server (needs endpoint configuration) ⚠️ MOCKED
-3. ~~**Local Action Handlers**: Platform channels for SMS, calls, file access, alarms~~ ✅ DONE
-4. ~~**Sync Service**: Background sync for contacts, tasks, alarms to remote agent~~ ✅ DONE
-5. ~~**Chat UI**: Text/voice input with media display support~~ ✅ DONE (text only, voice TBD)
-6. ~~**Confirmation UI**: User approval system for sensitive actions~~ ✅ DONE
 
 ## Current Architecture (Implemented)
 ```
