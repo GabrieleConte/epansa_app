@@ -143,7 +143,7 @@ lib/
    flutter pub get
    ```
 
-3. **Request `google-services.json` from project maintainer**
+3. **Request `google-services.json` from project maintainer** or create your own in Firebase Console:
    - This file is not included in version control for security reasons
    - Place the received file in: `android/app/google-services.json`
 
