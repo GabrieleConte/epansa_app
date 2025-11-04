@@ -124,10 +124,11 @@ lib/
 ## Getting Started
 
 ### Prerequisites
-- Flutter SDK 3.0 or higher
+- Flutter SDK 3.9.2 or higher
 - Android Studio / Xcode (for platform-specific development)
 - Google Cloud Project with OAuth credentials
 - EPANSA backend server running
+- For Android: Android emulator with **Google Play Services** (not just Google APIs)
 
 ### Installation
 
@@ -142,19 +143,73 @@ lib/
    flutter pub get
    ```
 
-3. **Configure environment**
+3. **Request `google-services.json` from project maintainer**
+   - This file is not included in version control for security reasons
+   - Place the received file in: `android/app/google-services.json`
+
+4. **Configure your development environment for Google Sign-In**
+   
+   **Important**: Each developer needs to add their own SHA-1 certificate fingerprint to Firebase Console.
+   
+   **On Windows:**
+   ```bash
+   cd android
+   gradlew signingReport
+   ```
+   
+   **On macOS/Linux:**
+   ```bash
+   cd android
+   ./gradlew signingReport
+   ```
+   
+   **Alternative method using keytool:**
+   
+   - **Windows (Command Prompt/PowerShell):**
+     ```bash
+     keytool -list -v -keystore "%USERPROFILE%\.android\debug.keystore" -alias androiddebugkey -storepass android -keypass android
+     ```
+   
+   - **macOS/Linux:**
+     ```bash
+     keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
+     ```
+   
+   Copy the **SHA-1** fingerprint from the output and share it with the project maintainer to add to Firebase Console.
+
+5. **Configure environment**
    ```bash
    cp .env.example .env
    # Edit .env with your configuration
    ```
 
-4. **Configure Google OAuth**
-   - Add your Google OAuth client IDs to `.env`
-   - Update Android/iOS configuration files as needed
-
-5. **Run the app**
+6. **Verify Flutter setup**
    ```bash
+   flutter doctor
+   ```
+   Ensure Android toolchain and all dependencies are properly configured.
+
+7. **Run the app**
+   
+   **Start your Android emulator** (must have Google Play Services):
+   ```bash
+   # List available emulators
+   emulator -list-avds
+   
+   # Start an emulator
+   emulator -avd <emulator_name>
+   ```
+   
+   **Run the Flutter app:**
+   ```bash
+   # Debug mode (with hot reload)
    flutter run
+   
+   # Or specify Android platform explicitly
+   flutter run -d android
+   
+   # Release mode (for performance testing)
+   flutter run --release
    ```
 
 ## Configuration
@@ -213,6 +268,72 @@ flutter build appbundle
 ```bash
 flutter build ios
 ```
+
+## Troubleshooting
+
+### Google Sign-In Issues
+
+If Google Sign-In is not working, try these solutions:
+
+#### 1. SHA-1 Certificate Mismatch (Most Common)
+**Symptoms**: Sign-in dialog appears but fails, or "Developer Error" message
+
+**Solution**: Ensure your SHA-1 fingerprint is added to Firebase Console
+- Run the commands in step 4 of Installation to get your SHA-1
+- Share it with the project maintainer to add to Firebase
+- After adding, download the updated `google-services.json` and replace your local copy
+
+#### 2. Google Play Services Missing
+**Symptoms**: "Google Play Services not available" error
+
+**Solution**: Use an Android emulator with Google Play Services
+- When creating an AVD in Android Studio, select a system image with the **Play Store** icon
+- Update Google Play Services in the emulator if prompted
+
+#### 3. Package Name Mismatch
+**Symptoms**: Authentication fails silently
+
+**Solution**: Verify the package name is `com.example.epansa_app`
+- Check `android/app/build.gradle.kts` has: `applicationId = "com.example.epansa_app"`
+- This must match the package name in Firebase Console
+
+#### 4. Cache Issues
+**Symptoms**: Sign-in worked before but now fails
+
+**Solution**: Clean and rebuild
+```bash
+flutter clean
+flutter pub get
+cd android
+./gradlew clean  # or gradlew clean on Windows
+cd ..
+flutter run
+```
+
+Also clear app data from Android Settings on the emulator.
+
+#### 5. Network Issues
+**Symptoms**: Timeout or connection errors
+
+**Solution**: Check emulator internet connectivity
+```bash
+adb shell ping google.com
+```
+
+#### 6. Debug Logs
+Enable verbose logging to see specific errors:
+```bash
+flutter run --verbose
+adb logcat | grep -i "google\|sign"
+```
+
+### Quick Checklist
+- ☐ Emulator has Google Play Services (Play Store icon)
+- ☐ SHA-1 fingerprint added to Firebase Console
+- ☐ `google-services.json` file is in `android/app/` folder
+- ☐ Package name is `com.example.epansa_app`
+- ☐ Internet connectivity works in emulator
+- ☐ Ran `flutter clean && flutter pub get`
 
 ## Features in Development
 
