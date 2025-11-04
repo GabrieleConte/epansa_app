@@ -352,7 +352,7 @@ adb logcat | grep -i "google\|sign"
 
 ## Contributing
 
-This is a thesis project. For questions or collaboration opportunities, please contact the repository owner.
+For questions or collaboration opportunities, please contact the repository owner.
 
 ## License
 
