@@ -580,10 +580,18 @@ class ChatProvider extends ChangeNotifier {
   }
 
   /// Clear all messages
-  void clearMessages() {
+  Future<void> clearMessages() async {
     _messages.clear();
     _pendingAction = null;
     notifyListeners();
+    
+    // Call backend to reset chat history
+    try {
+      await _apiClient.resetChat();
+    } catch (e) {
+      print('Failed to reset chat on backend: $e');
+      // Continue anyway, local messages are already cleared
+    }
   }
 
   /// Add welcome message

@@ -533,4 +533,25 @@ class AgentApiClient {
       rethrow;
     }
   }
+
+  /// Reset chat history on the backend
+  Future<void> resetChat() async {
+    try {
+      final headers = await authService.getAuthHeaders();
+      
+      final response = await _dio.post(
+        '/reset_chat',
+        options: Options(headers: headers),
+      );
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        throw Exception('Failed to reset chat: ${response.statusCode}');
+      }
+
+      print('✅ Chat history reset on backend');
+    } catch (e) {
+      print('❌ Error resetting chat on backend: $e');
+      rethrow;
+    }
+  }
 }

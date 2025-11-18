@@ -167,9 +167,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
               title: const Text('Clear Chat History'),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                context.read<ChatProvider>().clearMessages();
+                await context.read<ChatProvider>().clearMessages();
+                if (!context.mounted) return;
                 context.read<ChatProvider>().addWelcomeMessage();
               },
             ),
